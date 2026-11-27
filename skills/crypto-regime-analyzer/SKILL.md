@@ -87,8 +87,14 @@ CoinGecko universe data is checked before use or caching: missing, empty or malf
 `id`/`symbol` fields, unsafe coin IDs, and an empty universe after exclusions cause
 an explicit `COINGECKO_UNIVERSE_*` error. Invalid same-day caches also fail explicitly;
 remove or repair the affected cache only after investigating its cause. `--top-n`
-must be a positive integer. This checks the universe response, not the separate
-history, dominance or funding endpoints.
+must be a positive integer. Global BTC dominance and market_chart price pairs are
+also validated before caching: dominance is a finite non-bool number in (0, 100],
+and nonempty price pairs have finite positive non-bool values/timestamps in strict
+time order. Bad cached closes/dominance fail explicitly and remain untouched.
+Legacy close-only caches carry no timestamp evidence. No rows are reordered,
+zero-filled or resampled. Invalid BTC history prevents a normal report; optional
+dominance failure remains explicitly unavailable. Funding is outside these
+CoinGecko response contracts. Scoring formulas remain unchanged.
 
 ### Phase 2: Interpret the Output
 

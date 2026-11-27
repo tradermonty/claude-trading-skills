@@ -122,6 +122,40 @@ def test_provider_failure_is_not_treated_as_a_holiday(monkeypatch):
         calendar.session_for_date("XNYS", date(2026, 7, 6))
 
 
+def test_us_early_close_classification():
+    assert calendar.is_early_close("XNYS", date(2026, 11, 27)) is True
+    assert calendar.is_early_close("XNYS", date(2026, 11, 25)) is False
+    assert calendar.is_early_close("XNYS", date(2026, 7, 3)) is False
+    with pytest.raises(ValueError, match="US cash"):
+        calendar.is_early_close("XTKS", date(2026, 11, 27))
+
+
+def test_previous_full_session_reference_directions():
+    chronological = ["2026-11-23", "2026-11-25", "2026-11-27", "2026-11-30"]
+    assert calendar.previous_full_session_index(
+        "XNYS", chronological, 3, order="chronological"
+    ) == (1, "previous_full_session")
+    assert calendar.previous_full_session_index(
+        "XNYS", chronological, 2, order="chronological"
+    ) == (1, "previous_full_session")
+    assert calendar.previous_full_session_index(
+        "XNYS", chronological, 1, order="chronological"
+    ) == (0, "previous_session")
+
+    most_recent_first = list(reversed(chronological))
+    assert calendar.previous_full_session_index("XNYS", most_recent_first, 0) == (
+        2,
+        "previous_full_session",
+    )
+    assert calendar.previous_full_session_index("XNYS", most_recent_first, 3) == (
+        None,
+        "unavailable",
+    )
+    assert calendar.previous_full_session_index(
+        "XNYS", ["day-001", "day-002"], 1, order="chronological"
+    ) == (0, "previous_session")
+
+
 def test_search_horizon_failure_is_explicit(monkeypatch):
     class EmptySchedule:
         empty = True

@@ -25,18 +25,15 @@ def test_pressure_reduces_numeric_quality_without_failing_rally():
     assert result["quality_score"]["total_score"] <= 59
 
 
-def test_older_day1_gap_is_not_silently_skipped(monkeypatch):
-    bars, swing, day1, _ = histories()
+def test_missing_low_inside_the_rally_is_not_silently_skipped():
+    bars, _, day1, _ = histories()
     bars.extend([make_bar(bars[-1]["close"] * 0.99), make_bar(bars[-1]["close"] * 1.005)])
-    older = tracker._is_swing_low(bars, swing)
-    newer = dict(older, swing_low_idx=len(bars) - 2)
-    monkeypatch.setattr(tracker, "_find_all_swing_lows", lambda _: [newer, older])
     assert tracker.analyze_single_index(bars, "Test")["state"] == "FTD_CONFIRMED"
     del bars[day1]["low"]
     result = tracker.analyze_single_index(bars, "Test")
     assert result.get("data_gap") is True
     assert result["state"] == "NO_SIGNAL"
-    assert "Day 1 low" in result["error"]
+    assert "invalid low" in result["error"]
 
 
 @pytest.mark.parametrize("failed_key", ["sp500", "nasdaq"])

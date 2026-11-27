@@ -35,6 +35,17 @@ matrix:
     requirements:
     - pandas-market-calendars==5.2.2
     reason: Exercise session-aware earnings-calendar empty-response classification.
+  ftd-detector:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    - requests>=2.31.0
+    reason: Exercise the early-close volume reference with the shared cash-equity calendar.
+  ibd-distribution-day-monitor:
+    requirements:
+    - pandas-market-calendars==5.2.2
+    - PyYAML>=6.0
+    - requests>=2.31.0
+    reason: Exercise the early-close volume reference with the shared cash-equity calendar.
   market-environment-analysis:
     requirements:
     - pandas-market-calendars==5.2.2

@@ -43,6 +43,10 @@ Market Breadth Analyzer answers the question every equity investor should ask be
 - Multi-window divergence detection (20-day + 60-day) between S&P 500 price and breadth
 - Rolling score history (up to 20 entries) with trend labels: Improving, Stable, Deteriorating
 
+### Use case: Market Breadth Analysis dashboard
+
+[Market Breadth Analysis](https://tradermonty.github.io/market-breadth-analysis/) is the interactive dashboard that publishes the breadth data this skill scores (`market_breadth_data.csv` and `market_breadth_summary.csv`). Open it to see the latest chart and compare it with the skill's report.
+
 <span class="badge badge-free">No API</span>
 
 ---

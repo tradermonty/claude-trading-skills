@@ -286,3 +286,21 @@ class TestYieldCurveProxyWarning:
             assert "reduced resolution" not in content.lower()
         finally:
             os.unlink(path)
+
+    def test_treasury_spread_pp_unit_rendered_in_markdown(self):
+        """Treasury yield-curve spread changes render in percentage points (pp) when roc_unit='pp'."""
+        analysis = _make_analysis(yield_curve_source="treasury_api")
+        analysis["components"]["yield_curve"]["roc_3m"] = 0.5
+        analysis["components"]["yield_curve"]["roc_12m"] = 1.0
+        analysis["components"]["yield_curve"]["roc_unit"] = "pp"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+            path = f.name
+
+        try:
+            generate_markdown_report(analysis, path)
+            with open(path) as f:
+                content = f.read()
+            assert "+0.50pp" in content
+            assert "+1.00pp" in content
+        finally:
+            os.unlink(path)

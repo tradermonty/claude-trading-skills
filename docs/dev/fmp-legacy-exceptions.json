@@ -81,6 +81,16 @@
       "path": "scripts/provider_contracts.py",
       "line": "COINGECKO_PATH = \"/api/v3/coins/markets\"",
       "reason": "CoinGecko API version 3 for the keyless universe contract, a different provider; not an FMP legacy endpoint. Refs #332."
+    },
+    {
+      "path": "scripts/provider_contracts.py",
+      "line": "\"global\": (\"/api/v3/global\", {}),",
+      "reason": "CoinGecko API version 3, a different provider; fixed keyless global/BTC market_chart probe path, not an FMP legacy request. Refs #332."
+    },
+    {
+      "path": "scripts/provider_contracts.py",
+      "line": "\"market-chart\": (\"/api/v3/coins/bitcoin/market_chart\", {\"vs_currency\": \"usd\", \"days\": \"365\"}),",
+      "reason": "CoinGecko API version 3, a different provider; fixed keyless global/BTC market_chart probe path, not an FMP legacy request. Refs #332."
     }
   ]
 }

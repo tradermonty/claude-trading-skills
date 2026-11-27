@@ -7,7 +7,7 @@ Investor's Business Daily (IBD) and William O'Neil's CAN SLIM framework populari
 A Distribution Day is detected when both conditions hold for the daily bar of an index or large ETF proxy (e.g. QQQ, SPY):
 
 1. **Decline:** Today's close is at least 0.2% below yesterday's close (this skill uses `pct_change <= -0.002`).
-2. **Higher Volume:** Today's volume is greater than yesterday's volume.
+2. **Higher Volume:** Today's volume is greater than the reference session's volume. Normally the reference is yesterday. On an early-close (half-day) session and the session after it, the reference is the most recent full-length session, resolved with the vendored `scripts/_market_calendar.py` XNYS calendar. The affected record carries `volume_reference: "previous_full_session"` and `volume_reference_date`.
 
 A small *epsilon* is applied at the boundary so that floating-point noise around 0.2% does not cause flaky detection.
 

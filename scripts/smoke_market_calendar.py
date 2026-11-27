@@ -15,6 +15,8 @@ CLI_PATHS = {
     "breakout-trade-planner": "scripts/plan_breakout_trades.py",
     "drawdown-circuit-breaker": "scripts/check_circuit_breaker.py",
     "earnings-trade-analyzer": "scripts/analyze_earnings_trades.py",
+    "ftd-detector": "scripts/ftd_detector.py",
+    "ibd-distribution-day-monitor": "scripts/ibd_monitor.py",
     "market-environment-analysis": "scripts/market_utils.py",
     "market-top-detector": "scripts/market_top_detector.py",
     "parabolic-short-trade-planner": "scripts/screen_parabolic.py",

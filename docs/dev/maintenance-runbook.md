@@ -430,7 +430,8 @@ python3 scripts/job_monitor.py --check-heartbeat --project-root .
 ```
 
 Exit 0 means all success timestamps are fresh; exit 1 reports missing, invalid,
-future, or stale timestamps. Thresholds are 48 hours for improvement and daily
+future, or stale timestamps. Thresholds are the paid-run interval plus 24 hours for improvement (96 hours
+by default; see `SKILL_LOOP_MIN_INTERVAL_HOURS` below), 48 hours for daily
 generation, and 14 days for weekly generation. This command reads only the two
 existing `logs/.skill_*_state.json` files and does not notify or modify anything.
 Use the primary repository whose logs the improvement checkout shares, or pass
@@ -448,21 +449,64 @@ stop, or a failed merge re-score), and there is nothing else to improve, the run
 counts as failed. A skill at or above the threshold, or one improved from
 auto-review items alone, still records success without the LLM review. Other
 non-healthy outcomes also count as failed: a rolled-back improvement whose score
-did not rise, a failed `claude` improvement, or a missing `gh`. With round-robin
-selection and a 48-hour threshold, one such day does not alert on its own. Dry runs, lock
+did not rise, a failed `claude` improvement, or a missing `gh`. A failed paid run is
+not retried until the next interval, so it alerts once the 24-hour grace has
+passed. Dry runs, lock
 skips, and failures do not refresh it. A failed improvement attempt returns
 nonzero even when scoring and the summary succeeded.
 
-The LLM review call is capped by `SKILL_LOOP_REVIEW_BUDGET_USD` (default `1.00`
-US dollars per call; values outside 0.01 to 5 or not numeric fall back to the
+Both the improvement loop and the generation pipeline run the newest `claude` on
+`PATH`, not the first one. The wrappers put `/opt/homebrew/bin` ahead of the
+native installer's `~/.local/bin`, so an old Homebrew copy used to win. It answered
+the review prompt in prose, so no review ever parsed (#652). Each run logs the
+chosen path. When several copies exist, it probes each with `--version` and logs
+the versions, including the copies it skipped; a single copy or a pin is not
+probed and logs `version unknown`. Relative or empty `PATH` entries are resolved
+to absolute paths first. To pin an executable, set `SKILL_LOOP_CLAUDE_BIN` to an
+absolute path in the plist's `EnvironmentVariables`. If the pin is not an
+absolute path to an executable file, the Python job exits 1 before scoring or
+generation starts; the wrapper has already synchronized the automation checkout
+by then. Code that imports these scripts and calls `run()` directly, bypassing
+`main()`, still runs the bare `claude` name.
+The weekly pipeline passes its selected executable to both mining and scoring
+children via `SKILL_LOOP_CLAUDE_BIN`; their availability checks and LLM calls
+use that exact executable, including pins whose filename is not `claude`.
+
+The LLM review call is capped by `SKILL_LOOP_REVIEW_BUDGET_USD` (default `5.00`
+US dollars per call; values outside 0.01 to 10 or not numeric fall back to the
 default with a warning). launchd does not pass your shell environment, so set it
 in the installed `com.trade-analysis.skill-improvement` plist under
 `EnvironmentVariables` and reload that agent; `install_launchd.py` preserves a
 customized plist instead of overwriting it.
 When the CLI reports `error_max_budget_usd`, the loop stops the review at once
-instead of retrying, and the log names this variable. A review of a typical
-skill costs about $0.6, which is why the earlier $0.50 cap stopped every
-review (#652). Success is recorded after
+instead of retrying, and the log names this variable. A review reads
+many files: live probes cost $3.18 over 4 turns with the default model and
+$2.07 over 9 turns with `--model sonnet`, which is why the earlier $0.50 and
+$1.00 caps stopped every review. $5 is a starting point, not a guarantee (#652).
+The review call may only use the read-only tools Read, Grep and Glob, and is
+capped at `SKILL_LOOP_REVIEW_MAX_TURNS` turns (default `12`; integers from 1 to
+40, anything else falls back to the default with a warning). The review prompt
+lists files to inspect, so the model reads them before answering; the former
+single turn stopped every review at its first read (#652). On
+`error_max_turns` the loop stops at once, without retrying, and the log names
+this variable. Set it in the plist the same way as the budget variable.
+
+Because a review is expensive, the loop does paid work at most once per
+`SKILL_LOOP_MIN_INTERVAL_HOURS` (default `72`; integers from 1 to 720, anything
+else falls back to the default with a warning). launchd still fires the
+`StartCalendarInterval` every day. After the lock and git checks, the loop reads
+`last_attempt_at` from `logs/.skill_improvement_state.json`. If it is newer than
+the interval, the run logs `skipping: last attempt at X, next due at Y` and
+exits 0 without scoring or calling `claude`. A skip never writes
+`last_success_at`. `last_attempt_at` is written right before the LLM review
+starts, whatever the outcome, so a failing review is not retried before the next
+interval either. Missing, unparsable, timezone-less or future stamps do not
+block a run. `--dry-run` never spends and ignores the gate. To run now, pass
+`--force`, for example `python3 scripts/run_skill_improvement_loop.py --force`.
+`job_monitor.py --check-heartbeat` derives its improvement threshold from the
+same variable and default (interval plus 24 hours), so if you override the
+variable in the improvement plist, set the same value in the heartbeat job's
+environment as well. Success is recorded after
 normal cleanup; it does not prove that a PR was merged or deployed.
 
 The fourth template schedules `run_skill_heartbeat.sh` independently at 08:00
@@ -473,8 +517,13 @@ jobs do not notify. Missing, invalid and future timestamps also notify. Delivery
 failure remains best effort and never turns stale health into a successful exit.
 The ordinary `--check-heartbeat` command above stays silent and read-only.
 
-For an explicit opt-out, set `SKILL_LOOP_NOTIFY=off` in the installed heartbeat
-plist's `EnvironmentVariables`, then unload/reload that exact watchdog service.
+For an explicit opt-out, run `python3 scripts/install_launchd.py --notify off`.
+It creates `logs/.skill_loop_notify_off`, which turns off watchdog and failure
+notifications from the next run, overriding any `SKILL_LOOP_NOTIFY` value; no reload
+is needed. The plists stay exact template renderings, so later updates (including
+the move-aside step above) keep the opt-out without repeating it. `--notify default`
+removes the file. An older hand-edited `SKILL_LOOP_NOTIFY=off` plist is refused as
+customized: move it aside once and rerun with `--notify off`.
 `macos` and `webhook` remain supported. The watchdog does not source `.envrc`, so
 webhook settings must reach its process through its private local LaunchAgent
 environment. It does not modify success state or start the monitored jobs.

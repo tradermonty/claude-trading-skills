@@ -4,9 +4,9 @@
 
 Default Nasdaq evidence is ^IXIC; --nasdaq-symbol QQQ explicitly selects a
 Nasdaq-100 ETF proxy. Never conflate the two series' prices or volumes. The Day
-4–10 window is this model's bounded choice. Day 1 low is an explicit failure
-anchor, potentially stricter than the generic IBD downtrend-low description;
-these are not claimed identical. Missing reference/low data is unavailable.
+4–10 window is this model's FTD window; an attempt that passes Day 10 expires and a new count starts with a new reference. The rally-failure reference is the
+rally low, the low of the pullback the rally attempt started from (the recent
+low of that pullback through Day 1 inclusive, frozen on Day 1); Day 1 low is informational. Missing reference/low data is unavailable.
 FTD-day-low close breach is pressure, not failure. Its published score is capped
 at 59 so numerical consumers see the weakening; this cap is not calibrated.
 Portfolio allocation is not assessed. Historical examples below are retained
@@ -26,7 +26,9 @@ A confirmed Follow-Through Day (FTD) shifts the probability toward a new uptrend
 ### What Is a Post-FTD Distribution Day?
 A distribution day after an FTD is defined as:
 - Index declines >= 0.2% from the prior day's close
-- Volume is higher than the previous day's volume
+- Volume is higher than the reference session's volume: normally the previous
+  session, or the most recent full-length session on an early-close (half-day)
+  session and on the session after it (recorded as `volume_reference`)
 - Occurs within the first 5 trading days after the FTD
 
 ### Distribution timing (heuristic, not calibrated failure rates)
@@ -45,19 +47,20 @@ These are model weights, not measured failure probabilities.
 
 ### Invalidation Criteria
 An FTD is formally invalidated when:
-- **A later intraday low strictly undercuts the recorded rally Day 1 low**
+- **A later intraday low strictly undercuts the rally low of the attempt that produced the FTD**
 - This is a hard stop - the FTD signal is no longer valid
 
 ### What to Do After Invalidation
 1. Reassess risk against portfolio limits; the tool does not prescribe a percentage
 2. Keep any portfolio decision separate from this technical event classification
-3. Wait for a new swing low and fresh rally attempt
+3. Wait for a fresh rally attempt and a new FTD; an FTD ends a correction, and so does a new high (state `UPTREND_RESUMED`, unless `FTD_RESUME_NEW_HIGH=off`)
 4. A previous failure does not determine the outcome of the next attempt
 
 ### Soft Warnings (Not Yet Invalidated)
-- A close below the **FTD candle low**, while holding the Day 1 reference, is pressure and caps published quality at 59.
-- An intraday breach of the **FTD candle low** followed by a close above that candle low is not the close-breach warning; inspect the Day 1 reference separately.
-- An intraday breach of the **Day 1 low** is failure even when the close recovers.
+- A close below the **FTD candle low**, while holding the rally low, is pressure and caps published quality at 59. It also moves `market_status` to `uptrend_under_pressure` (`cycle.pressure_reasons` includes `ftd_low_close_breach`); the state stays FTD_CONFIRMED. The status returns to `confirmed_uptrend` once active distribution days are <= 4 and the close is above the 50-session SMA, without a new FTD.
+- An intraday breach of the **FTD candle low** followed by a close above that candle low is not the close-breach warning; inspect the rally low separately.
+- An intraday breach of the **rally low** is failure even when the close recovers.
+- Distribution (5+ active distribution days) or a close below the 50-session average (once the index has closed above it since the FTD) moves a confirmed uptrend to `uptrend_under_pressure`. 6+ distribution days with a close below the 50-session average end it (market in correction); see the market status rules in `ftd_methodology.md`.
 - Approaching either level is technical context, not an instruction to change portfolio exposure.
 
 ---

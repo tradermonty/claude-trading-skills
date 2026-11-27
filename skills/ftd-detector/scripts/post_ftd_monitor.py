@@ -4,7 +4,7 @@ FTD Detector - Post-FTD Health Monitor
 
 Monitors the health of a confirmed Follow-Through Day by tracking:
 1. Distribution days after FTD (early distribution = high failure risk)
-2. Rally failure (intraday breach of Day 1 low), separate from FTD-low warning
+2. Rally failure (intraday breach of the rally low), separate from FTD-low warning
 3. Power Trend confirmation (21EMA > 50SMA, slope positive)
 4. Quality score calculation (0-100)
 
@@ -14,10 +14,15 @@ with ``data_gap: True`` and a ``reason``. The quality score then stays an int:
 ``0`` with signal ``"Unavailable: data gap"``, never ``None``.
 """
 
-from _price_bars import find_bar_gaps
+from _market_calendar import previous_full_session_index
+from _price_bars import find_bar_gaps, read_price
 from ftd_lifecycle import assess_lifecycle, select_ftd_source
 
 UNAVAILABLE_SIGNAL = "Unavailable: data gap"
+
+# The power trend reads only the most recent sessions (the fetch used to be 80), so
+# a bad bar months back cannot make it unavailable now that 500 sessions are fetched.
+POWER_TREND_LOOKBACK = 80
 
 
 def _gaps(bars: list[dict], required: tuple) -> dict:
@@ -36,6 +41,9 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
     """
     Count distribution days (down days on higher volume) after FTD.
 
+    Volume is compared with the reference session: the previous session, or the
+    most recent full-length session on an early-close session and the session
+    after it (issue #892).
     Distribution within first 1-2 days = very bearish (FTD likely fails)
     Distribution on day 3 = moderately bearish
     Distribution on day 4-5 = mild negative
@@ -72,27 +80,58 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
 
     distributions = []
     days_monitored = 0
+    session_dates = [bar.get("date") for bar in history]
 
     for i in range(ftd_idx + 1, end):
         days_monitored += 1
         curr_close = history[i]["close"]
         prev_close = history[i - 1]["close"]
         curr_volume = history[i]["volume"]
-        prev_volume = history[i - 1]["volume"]  # validated > 0 above
+        reference_idx, reference_basis = previous_full_session_index(
+            "XNYS", session_dates, i, order="chronological"
+        )
+        if reference_idx is None:
+            return {
+                "distribution_count": 0,
+                "days_monitored": days_monitored,
+                "earliest_distribution_day": None,
+                "details": [],
+                "data_gap": True,
+                "reason": (
+                    f"Data gap: no full session reference for {history[i].get('date', 'N/A')}"
+                ),
+            }
+        prev_volume = read_price(history[reference_idx], "volume")
+        if prev_volume is None:
+            return {
+                "distribution_count": 0,
+                "days_monitored": days_monitored,
+                "earliest_distribution_day": None,
+                "details": [],
+                "data_gap": True,
+                "reason": (
+                    "Data gap: volume reference "
+                    f"{history[reference_idx].get('date', 'N/A')} unavailable"
+                ),
+            }
 
         change_pct = (curr_close - prev_close) / prev_close * 100
 
         # Distribution day: down >= 0.2% on higher volume
         if change_pct <= -0.2 and curr_volume > prev_volume:
             day_num = i - ftd_idx
-            distributions.append(
-                {
-                    "day": day_num,
-                    "date": history[i].get("date", "N/A"),
-                    "change_pct": round(change_pct, 2),
-                    "volume_change_pct": round((curr_volume / prev_volume - 1) * 100, 1),
+            distribution_day = {
+                "day": day_num,
+                "date": history[i].get("date", "N/A"),
+                "change_pct": round(change_pct, 2),
+                "volume_change_pct": round((curr_volume / prev_volume - 1) * 100, 1),
+            }
+            if reference_basis == "previous_full_session" and reference_idx is not None:
+                distribution_day["volume_reference"] = {
+                    "basis": reference_basis,
+                    "date": history[reference_idx].get("date", "N/A"),
                 }
-            )
+            distributions.append(distribution_day)
 
     earliest = distributions[0]["day"] if distributions else None
 
@@ -105,7 +144,7 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
 
 
 def check_ftd_invalidation(history: list[dict], ftd_idx: int, rally_low=None) -> dict:
-    """Assess failure against Day 1, with FTD candle-low warning kept separate."""
+    """Assess failure against the rally low, with FTD candle-low warning kept separate."""
     return assess_lifecycle(history, ftd_idx, rally_low)
 
 
@@ -252,7 +291,12 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
             "total_score": 0,
             "breakdown": {},
             "signal": "No FTD",
-            "guidance": "No Follow-Through Day detected. Stay defensive.",
+            "guidance": (
+                "Uptrend resumed on a new high without a follow-through day; "
+                "no FTD quality score applies."
+                if market_state.get("combined_state") == "UPTREND_RESUMED"
+                else "No Follow-Through Day detected. Stay defensive."
+            ),
             "exposure_range": "Not assessed",
         }
 
@@ -285,13 +329,21 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
 
     # 2. Price gain bonus
     gain = ftd_data.get("gain_pct", 0)
-    if gain >= FTD_GAIN_STRONG:
+    # The tier is set from the unrounded gain; the rounded gain_pct can cross a
+    # threshold (1.496% prints as 1.50%). Decide the bonus from the tier when
+    # present and keep the rounded gain for display only.
+    level = {
+        "strong": FTD_GAIN_STRONG,
+        "recommended": FTD_GAIN_RECOMMENDED,
+        "minimum": FTD_GAIN_MINIMUM,
+    }.get(ftd_data.get("gain_tier"), gain)
+    if level >= FTD_GAIN_STRONG:
         gain_bonus = 15
         breakdown["gain"] = f"{gain:+.2f}% gain: +15 (strong)"
-    elif gain >= FTD_GAIN_RECOMMENDED:
+    elif level >= FTD_GAIN_RECOMMENDED:
         gain_bonus = 10
         breakdown["gain"] = f"{gain:+.2f}% gain: +10 (recommended)"
-    elif gain >= FTD_GAIN_MINIMUM:
+    elif level >= FTD_GAIN_MINIMUM:
         gain_bonus = 5
         breakdown["gain"] = f"{gain:+.2f}% gain: +5 (minimum)"
     else:
@@ -402,7 +454,7 @@ def calculate_ftd_quality_score(market_state: dict) -> dict:
 
     if inv.get("warning"):
         signal = "FTD under pressure"
-        guidance = "FTD-day low breached; rally failure requires a Day 1 low breach. Assess risk separately."
+        guidance = "FTD-day low breached; rally failure requires a rally low breach. Assess risk separately."
 
     return {
         "total_score": score,
@@ -439,10 +491,9 @@ def _post_ftd_data_quality(market_state: dict, sp500_history: list[dict]) -> dic
         quality[key] = dict(market_state.get(key, {}).get("data_quality") or {})
     # Counted only when the power trend actually runs (50+ bars); below that the
     # power trend reports "Insufficient data", not a data gap.
+    window = sp500_history[-POWER_TREND_LOOKBACK:] if sp500_history else []
     quality["sp500"]["power_trend_bad_bars"] = (
-        _gaps(sp500_history, ("close",))["bad_bars"]
-        if sp500_history and len(sp500_history) >= 50
-        else 0
+        _gaps(window, ("close",))["bad_bars"] if len(window) >= 50 else 0
     )
     return quality
 
@@ -502,10 +553,12 @@ def assess_post_ftd_health(
                 market_state["post_ftd_distribution"] = dist
 
                 # Invalidation check
-                inv = check_ftd_invalidation(
-                    hist, ftd_idx, (idx_data.get("rally_attempt") or {}).get("day1_low")
-                )
-                inv["rally_day1_date"] = (idx_data.get("rally_attempt") or {}).get("day1_date")
+                attempt = idx_data.get("rally_attempt") or {}
+                # The rally low is the failure reference; day1_low only
+                # serves hand-built states that predate "reference_low".
+                reference = attempt.get("reference_low", attempt.get("day1_low"))
+                inv = check_ftd_invalidation(hist, ftd_idx, reference)
+                inv["rally_day1_date"] = attempt.get("day1_date")
                 market_state["ftd_invalidation"] = inv
 
                 if dist.get("data_gap") or inv.get("data_gap"):
@@ -516,7 +569,11 @@ def assess_post_ftd_health(
                     market_state["combined_state"] = "NO_SIGNAL"
                     market_state["dual_confirmation"] = False
                     market_state["ftd_index"] = None
-                elif inv.get("invalidated"):
+                elif (
+                    inv.get("invalidated")
+                    and market_state.get("combined_state") != "UPTREND_RESUMED"
+                ):
+                    # a failed event never replaces a resumed uptrend on the other index
                     market_state["combined_state"] = "FTD_INVALIDATED"
 
                 break  # Use first confirmed FTD index only (matches quality score logic)
@@ -532,7 +589,7 @@ def assess_post_ftd_health(
 
     # Power trend check (use S&P 500 as primary)
     if sp500_history and len(sp500_history) >= 50:
-        market_state["power_trend"] = detect_power_trend(sp500_history)
+        market_state["power_trend"] = detect_power_trend(sp500_history[-POWER_TREND_LOOKBACK:])
     else:
         market_state["power_trend"] = {
             "power_trend": False,
@@ -550,6 +607,12 @@ def assess_post_ftd_health(
         market_state["combined_state"] = "NO_SIGNAL"
         market_state["dual_confirmation"] = False
         market_state["ftd_index"] = None
+
+    # Keep the IBD status in step with any combined_state override above.
+    if market_state.get("data_gap") or market_state["combined_state"] == "NO_SIGNAL":
+        market_state["market_status"] = None
+    elif market_state["combined_state"] == "FTD_INVALIDATED":
+        market_state["market_status"] = "market_in_correction"
 
     return market_state
 

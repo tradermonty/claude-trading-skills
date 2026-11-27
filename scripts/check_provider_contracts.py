@@ -59,15 +59,16 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from scripts.provider_contracts import (  # noqa: E402
-    COINGECKO_PATH,
-    COINGECKO_QUERY,
+    COINGECKO_PROBES,
     DEPRECATION,
     FATAL,
     Anomaly,
     Contract,
     ContractLoadError,
     RowValidation,
+    coingecko_response_count,
     load_contracts,
+    normalize_coingecko,
     parse_csv_rows,
     redact_url,
     validate_contract_file,
@@ -155,6 +156,7 @@ class FetchResult:
     status: int
     rows: Any
     extra_anomalies: list[Anomaly] = field(default_factory=list)
+    observed_rows: int | None = None
 
 
 ProviderFetch = Callable[[Contract], FetchResult]
@@ -232,18 +234,19 @@ def _build_coingecko_fetch() -> ProviderFetch:
     import requests
 
     def fetch(contract: Contract) -> FetchResult:
+        probe = COINGECKO_PROBES.get(contract.endpoint)
         if (
-            contract.format != "json"
-            or contract.endpoint_path != COINGECKO_PATH
-            or contract.query != COINGECKO_QUERY
+            not probe
+            or contract.format != "json"
+            or (contract.endpoint_path, contract.query) != probe
         ):
             return FetchResult(-1, None, [Anomaly("unsupported_probe_configuration", FATAL)])
         response = None
         limit = 2 * 1024 * 1024
         try:
             response = requests.get(
-                "https://api.coingecko.com" + COINGECKO_PATH,
-                params=dict(COINGECKO_QUERY),
+                "https://api.coingecko.com" + probe[0],
+                params=dict(probe[1]),
                 timeout=30,
                 allow_redirects=False,
                 stream=True,
@@ -261,9 +264,20 @@ def _build_coingecko_fetch() -> ProviderFetch:
             if response is not None:
                 response.close()
         try:
-            return FetchResult(200, json.loads(bytes(buffer).decode("utf-8")))
+            payload = json.loads(bytes(buffer).decode("utf-8"))
         except (ValueError, UnicodeError):
             return FetchResult(200, None, [Anomaly("parse_error", FATAL)])
+        observed = (
+            None
+            if contract.endpoint == "coins-markets"
+            else coingecko_response_count(contract.endpoint, payload)
+        )
+        try:
+            return FetchResult(
+                200, normalize_coingecko(contract.endpoint, payload), observed_rows=observed
+            )
+        except ValueError:
+            return FetchResult(200, None, [Anomaly("invalid_coingecko_payload", FATAL)], observed)
 
     return fetch
 
@@ -306,7 +320,7 @@ def run_canary(
         data = fetched.rows
         # CSV: with no rows (transport/size/decode failure, non-200) there is
         # nothing to validate; a spurious empty_response would bury the cause.
-        if contract.format == "csv" and data is None:
+        if data is None and (contract.format == "csv" or fetched.extra_anomalies):
             validation = RowValidation()
         else:
             validation = validate_rows(contract, data)
@@ -317,6 +331,13 @@ def run_canary(
             rows = len(data)
         else:
             rows = 1
+        if fetched.observed_rows is not None:
+            observed = fetched.observed_rows
+            if type(observed) is not int or observed < 0 or (data is not None and observed != rows):
+                merged.anomalies.append(Anomaly("invalid_response_evidence_count", FATAL))
+                rows = 0
+            else:
+                rows = observed
         anomalies = merged.summarized(FATAL)
         # A CSV transport_error already explains status -1; do not add http_status:-1.
         if fetched.status != 200 and not any(a["code"] == "transport_error" for a in anomalies):
@@ -641,6 +662,7 @@ def health_errors(
     ):
         return ["Canary report has inconsistent probe budget evidence."]
     usable = False
+    all_usable = True
     for entry in entries.values():
         if not isinstance(entry, dict) or type(entry.get("ok")) is not bool:
             return ["Canary report has a malformed contract entry."]
@@ -662,7 +684,9 @@ def health_errors(
                 return ["Canary report has malformed anomaly evidence."]
         if entry["ok"] != (status == 200 and not entry["anomalies"]):
             return ["Canary report contract status contradicts its anomalies."]
-        usable |= status == 200 and entry["rows"] > 0
+        usable_entry = status == 200 and entry["rows"] > 0
+        usable |= usable_entry
+        all_usable &= usable_entry
     if type(report.get("ok")) is not bool or report["ok"] != all(
         entry["ok"] for entry in entries.values()
     ):
@@ -671,6 +695,8 @@ def health_errors(
     expected_outcome = "success" if expected_code == 0 else "failure"
     if probe_exit_code != expected_code or probe_outcome != expected_outcome:
         return ["Canary probe did not complete with the expected report/exit status."]
+    if provider == "coingecko" and not all_usable:
+        return ["CoinGecko canary requires nonempty HTTP 200 evidence for every endpoint."]
     if not usable:
         return ["Canary returned no nonempty HTTP 200 response; no usable probe evidence."]
     return []

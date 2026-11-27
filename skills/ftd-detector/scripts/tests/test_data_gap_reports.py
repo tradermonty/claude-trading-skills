@@ -97,7 +97,7 @@ def test_both_indices_gapped_end_to_end(monkeypatch, tmp_path, capsys):
     assert "normal market conditions" not in markdown
     assert "Cautious exposure increase" not in markdown
     assert "**State unavailable (data gap)**" in markdown
-    assert "No Signal (Uptrend)" not in markdown
+    assert "No Signal (status unavailable)" not in markdown
     assert "**Data quality:**" in markdown
     assert_no_none(markdown)
     assert "Combined State: NO_SIGNAL (data gap — state unavailable)" in console
@@ -207,7 +207,7 @@ def test_confirmed_with_post_ftd_gap_renders_unavailable(tmp_path, field):
     markdown = path.read_text(encoding="utf-8")
 
     assert "**State unavailable (data gap)**" in markdown
-    assert "No Signal (Uptrend)" not in markdown
+    assert "No Signal (status unavailable)" not in markdown
     assert "Unavailable: data gap" in markdown
     assert "Data gap: confirmation unavailable" in markdown
     assert "Cautious exposure increase" not in markdown

@@ -136,7 +136,8 @@ def generate_markdown_report(analysis: dict, output_file: str):
         cross_str = cross_type.replace("_", " ")
         if cross_ago is not None:
             cross_str += f" ({cross_ago}mo ago)"
-        roc_str = f"{roc_3m:+.2f}%" if roc_3m is not None else "N/A"
+        roc_unit = "pp" if comp_detail.get("roc_unit") == "pp" else "%"
+        roc_str = f"{roc_3m:+.2f}{roc_unit}" if roc_3m is not None else "N/A"
 
         fit = consistency.get(key, "--")
         fit_str = "OK" if fit == "consistent" else "CONTRA" if fit == "contradicting" else "--"
@@ -187,10 +188,11 @@ def generate_markdown_report(analysis: dict, output_file: str):
             lines.append(f"- **6M SMA:** {comp['sma_6m']}")
         if comp.get("sma_12m") is not None:
             lines.append(f"- **12M SMA:** {comp['sma_12m']}")
+        roc_unit = "pp" if comp.get("roc_unit") == "pp" else "%"
         if comp.get("roc_3m") is not None:
-            lines.append(f"- **3M ROC:** {comp['roc_3m']:+.2f}%")
+            lines.append(f"- **3M ROC:** {comp['roc_3m']:+.2f}{roc_unit}")
         if comp.get("roc_12m") is not None:
-            lines.append(f"- **12M ROC:** {comp['roc_12m']:+.2f}%")
+            lines.append(f"- **12M ROC:** {comp['roc_12m']:+.2f}{roc_unit}")
         if comp.get("percentile") is not None:
             lines.append(f"- **Percentile:** {comp['percentile']:.1f}%")
 

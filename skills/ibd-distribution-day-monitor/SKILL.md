@@ -39,7 +39,7 @@ Do NOT use this skill to:
 ## Core Rules
 A Distribution Day is detected when:
 1. Today's close is at least 0.2% below yesterday's close.
-2. Today's volume is greater than yesterday's volume.
+2. Today's volume is greater than the reference session's volume. Normally the reference is yesterday; on an early-close (half-day) session and the session after it, it is the most recent full-length session from the vendored XNYS calendar. The affected record carries `volume_reference: "previous_full_session"` and `volume_reference_date`.
 
 A Distribution Day is removed from the active count when either:
 - More than 25 trading sessions have elapsed since the DD.

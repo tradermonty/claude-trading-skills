@@ -33,7 +33,6 @@ def fetch_fmp(kind, symbol, api_key, params=None, *, rate_limit_sec=0.3):
     data = None
     try:
         client = _client_class()(api_key=api_key)
-        client.timeout = 15
         client.RATE_LIMIT_DELAY = rate_limit_sec
         data = client.fetch_theme_data(kind, symbol, params)
     except (ImportError, ValueError):

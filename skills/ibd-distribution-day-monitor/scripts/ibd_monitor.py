@@ -31,6 +31,11 @@ import yaml  # type: ignore
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+from _market_calendar import (
+    CalendarDependencyMissingError,
+    CalendarUnavailableError,
+    previous_full_session_index,
+)
 from data_loader import (
     build_fmp_client,
     coerce_close,
@@ -221,23 +226,36 @@ def _today_dict(effective_history: list[dict], records: list[DDRecord]) -> dict:
         return {}
     today = effective_history[0]
     yesterday = effective_history[1] if len(effective_history) > 1 else None
+    reference = None
+    reference_basis = "unavailable"
+    if yesterday is not None:
+        session_dates = [row.get("date") for row in effective_history]
+        reference_idx, reference_basis = previous_full_session_index(
+            "XNYS", session_dates, 0, order="most_recent_first"
+        )
+        if reference_idx is not None:
+            reference = effective_history[reference_idx]
     pct_change = None
     volume_change_pct = None
     if yesterday and today.get("close") and yesterday.get("close"):
         pct_change = today["close"] / yesterday["close"] - 1
         if not math.isfinite(pct_change):
             pct_change = None
-    if yesterday and today.get("volume") and yesterday.get("volume"):
-        volume_change_pct = today["volume"] / yesterday["volume"] - 1
-    return {
+    if reference and today.get("volume") and reference.get("volume"):
+        volume_change_pct = today["volume"] / reference["volume"] - 1
+    result = {
         "date": today.get("date"),
         "close": today.get("close"),
         "previous_close": yesterday.get("close") if yesterday else None,
         "pct_change": pct_change,
         "volume": today.get("volume"),
-        "previous_volume": yesterday.get("volume") if yesterday else None,
+        "previous_volume": reference.get("volume") if reference else None,
         "volume_change_pct": volume_change_pct,
     }
+    if reference is not None and reference_basis == "previous_full_session":
+        result["volume_reference"] = reference_basis
+        result["volume_reference_date"] = reference.get("date")
+    return result
 
 
 def _build_explanation(symbol: str, d5: int, d15: int, d25: int, risk: str, today_dd: bool) -> str:
@@ -475,15 +493,23 @@ def main(argv: list[str] | None = None) -> int:
             continue
         symbols_loaded.append(symbol)
 
-        result, idx_flags = analyze_index(
-            symbol=symbol,
-            benchmark_name=benchmark,
-            history=history,
-            config=config,
-            rule=rule,
-            thresholds=thresholds,
-            as_of=args.as_of,
-        )
+        try:
+            result, idx_flags = analyze_index(
+                symbol=symbol,
+                benchmark_name=benchmark,
+                history=history,
+                config=config,
+                rule=rule,
+                thresholds=thresholds,
+                as_of=args.as_of,
+            )
+        except CalendarDependencyMissingError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        except CalendarUnavailableError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
         # Normalization replaces invalid prices with None. Restore the original
         # safe reason only for dates already present in the effective analysis.
         invalid_close_dates = {

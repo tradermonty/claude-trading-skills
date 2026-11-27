@@ -449,3 +449,25 @@ class TestQualityScoreInvalidation:
         result = calculate_ftd_quality_score(market_state)
         assert result["total_score"] > 0
         assert "invalidation" not in result.get("breakdown", {})
+
+
+def test_gain_bonus_follows_the_unrounded_tier_not_the_rounded_gain():
+    """A 1.496% FTD prints as 1.50% but is a minimum-tier gain (+5, not +10)."""
+    market_state = {
+        "sp500": {
+            "ftd": {
+                "ftd_detected": True,
+                "ftd_day_number": 5,
+                "gain_pct": 1.5,
+                "gain_tier": "minimum",
+                "volume_above_avg": True,
+            },
+        },
+        "nasdaq": {"ftd": {}},
+        "dual_confirmation": False,
+        "post_ftd_distribution": {},
+    }
+    market_state.setdefault("ftd_invalidation", {"invalidated": False, "rally_low": 90})
+    breakdown = calculate_ftd_quality_score(market_state)["breakdown"]
+    assert "+5 (minimum)" in breakdown["gain"]
+    assert "+1.50%" in breakdown["gain"]

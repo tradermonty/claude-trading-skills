@@ -159,7 +159,7 @@ class FMPClient:
                 "or pass api_key parameter."
             )
         self.session = requests.Session()
-        self.timeout = 30
+        self.timeout = 15
         self.cache = {}
         self.last_call_time = 0
         self.rate_limit_reached = False
@@ -173,6 +173,11 @@ class FMPClient:
         # so _request_with_fallback can surface suppressed errors even when
         # an endpoint was called with quiet=True.
         self._last_error: Optional[str] = None
+        # Class of the most recent failure, so the endpoint breaker can
+        # count provider outages only, not per-symbol client errors.
+        self._last_failure_kind: Optional[str] = None
+        # Symbols skipped because no remaining endpoint could serve them.
+        self._skipped_symbols: list[str] = []
 
     def _redact_secret(self, text) -> str:
         """Retain classifications only; never publish provider/exception details."""
@@ -194,6 +199,7 @@ class FMPClient:
         _rate_retry: int = 0,
     ) -> Optional[dict]:
         self._last_error = None
+        self._last_failure_kind = None
         self.retry_count = _rate_retry
         if self.rate_limit_reached:
             self._last_error = "daily rate limit already reached"
@@ -216,6 +222,7 @@ class FMPClient:
             response = self.session.get(url, params=params, timeout=self.timeout)
             if response.status_code == 200:
                 self.retry_count = 0
+                self._last_failure_kind = None
                 try:
                     data = response.json()
                 except ValueError as e:
@@ -224,6 +231,7 @@ class FMPClient:
                     # adds no backoff beyond the normal rate-limit delay and
                     # costs one extra API call (counts against any budget).
                     msg = self._redact_secret(f"invalid JSON response: {e}")
+                    self._last_failure_kind = "invalid_json"
                     if _json_retry:
                         if not quiet:
                             print(f"WARNING: {msg}; retrying once", file=sys.stderr)
@@ -247,12 +255,14 @@ class FMPClient:
                     )
                 else:
                     self._last_error = "HTTP 429 (daily rate limit)"
+                    self._last_failure_kind = "http_429"
                     print("ERROR: Daily API rate limit reached.", file=sys.stderr)
                     self.rate_limit_reached = True
                     return None
             else:
                 body = self._redact_secret(response.text)[:200]
                 msg = self._redact_secret(f"HTTP {response.status_code} - {body}")
+                self._last_failure_kind = "http_5xx" if response.status_code >= 500 else "http_4xx"
                 self._last_error = msg
                 if not quiet:
                     print(
@@ -263,6 +273,7 @@ class FMPClient:
         except requests.exceptions.RequestException as e:
             redacted = self._redact_secret(str(e))
             self._last_error = f"request exception: {redacted}"
+            self._last_failure_kind = "transport"
             print(f"ERROR: Request exception: {redacted}", file=sys.stderr)
             return None
 
@@ -280,9 +291,12 @@ class FMPClient:
         endpoints = _FMP_ENDPOINTS[endpoint_key]
         is_single = "," not in symbols_str
 
+        passed_over: list[str] = []
         for i, (base_url, url_builder) in enumerate(endpoints):
-            # Circuit breaker: skip endpoints with too many consecutive failures
+            # Circuit breaker: skip endpoints with too many consecutive failures.
+            # Do not report the symbol yet: a later endpoint may still serve it.
             if base_url in self._disabled_endpoints:
+                passed_over.append(base_url)
                 continue
 
             url, final_params = url_builder(base_url, symbols_str, dict(params))
@@ -290,7 +304,8 @@ class FMPClient:
             data = self._rate_limited_get(url, final_params, quiet=not is_last)
             if not data:  # falsy (None, [], {}) — try next endpoint
                 if data is None:
-                    self._record_endpoint_failure(base_url)
+                    if self._failure_kind_counts_toward_breaker():
+                        self._record_endpoint_failure(base_url)
                 else:
                     self._endpoint_failures[base_url] = 0
                 self._warn_fallback(base_url, is_last, self._last_error)
@@ -305,7 +320,7 @@ class FMPClient:
                 limit = params.get("timeseries") if isinstance(params, dict) else None
                 data = _normalize_eod_flat_list(data, symbols_str, limit=limit)
                 if not data:
-                    self._record_endpoint_failure(base_url)
+                    self._last_failure_kind = "response_contract"
                     self._warn_fallback(
                         base_url,
                         is_last,
@@ -349,8 +364,14 @@ class FMPClient:
             if valid:
                 self._endpoint_failures[base_url] = 0
                 return data
-            self._record_endpoint_failure(base_url)
+            # Wrong shape or wrong symbol on a 200 is a per-call response
+            # contract failure, not a provider outage: do not count it.
+            self._last_failure_kind = "response_contract"
             self._warn_fallback(base_url, is_last, shape_issue or "unexpected response shape")
+        # A request that ended on the rate limit was not refused by the breaker.
+        if passed_over and not self.rate_limit_reached:
+            for skipped_url in passed_over:
+                self._note_skipped_symbol(skipped_url, symbols_str)
         return None
 
     def _warn_fallback(self, base_url: str, is_last: bool, reason: Optional[str]) -> None:
@@ -370,6 +391,34 @@ class FMPClient:
         self._endpoint_failures[base_url] = failures
         if failures >= self._ENDPOINT_FAILURE_THRESHOLD:
             self._disabled_endpoints.add(base_url)
+
+    def _failure_kind_counts_toward_breaker(self) -> bool:
+        """Return True when the last failure is a provider-level outage.
+
+        A 4xx for an unknown or delisted ticker, or a malformed body, is
+        a per-symbol client error. Counting it would disable the endpoint
+        for the rest of the run and silently drop every later symbol.
+        """
+        return self._last_failure_kind in {"transport", "http_429", "http_5xx"}
+
+    def _note_skipped_symbol(self, base_url: str, symbols_str: str) -> None:
+        """Report a symbol skipped because its endpoint is disabled."""
+        entry = f"{base_url}:{symbols_str}"
+        if entry not in self._skipped_symbols:
+            self._skipped_symbols.append(entry)
+            print(
+                f"WARN: {base_url} disabled after repeated failures; skipping {symbols_str}",
+                file=sys.stderr,
+            )
+
+    def get_endpoint_report(self) -> dict:
+        """Return endpoint breaker state and the skipped-symbol report."""
+        return {
+            "failures": dict(self._endpoint_failures),
+            "disabled_endpoints": sorted(self._disabled_endpoints),
+            "skipped_symbols": list(self._skipped_symbols),
+            "last_failure_kind": self._last_failure_kind,
+        }
 
     def fetch_theme_data(self, kind: str, symbol: str, params=None):
         """Stable-only raw evidence; theme consumers retain shape/as-of policies."""

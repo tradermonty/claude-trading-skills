@@ -58,6 +58,19 @@ rows raise an explicit error. Search functions use a 370-day finite horizon.
 All datetimes are timezone-aware. Opens are inclusive, closes are exclusive, and
 the JPX lunch break is closed.
 
+## Full-session volume reference (#892)
+
+`is_early_close(venue, date)` classifies a US cash-equity session whose local
+close is before 16:00 (a scheduled half day). A weekend or holiday is not a
+session, so it returns `False`; only `XNYS` and `XNAS` are classified. `previous_full_session_index()`
+returns the reference bar for a previous-session volume comparison in either
+history direction (`order="chronological"` or `"most_recent_first"`): the
+immediately previous session normally, and the most recent full-length session
+when the session itself or the one before it closed early. The FTD detector and
+IBD distribution monitor use this reference for their volume rules and record
+`volume_reference` on affected days, so a half-day's structurally low volume
+does not create an automatic distribution day on the next session.
+
 ## Day-count boundaries
 
 | Consumer | Start | End | Reverse/past behavior |

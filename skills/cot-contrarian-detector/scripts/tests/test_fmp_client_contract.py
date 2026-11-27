@@ -108,19 +108,28 @@ def test_historical_fallback_normalizes_and_caches(monkeypatch):
     assert c.session.calls[0][1] == {"symbol": "ABC", "from": "2026-01-06", "to": "2026-01-10"}
     assert c.session.calls[1][0].endswith("/api/v3/historical-price-full/ABC")
     assert c.session.calls[1][1] == {"timeseries": 2}
-    assert c._endpoint_failures[c.session.calls[0][0]] == 1
+    # A 403 is a per-call client/auth failure, not a provider outage: it must
+    # not count toward the endpoint circuit breaker (#844).
+    assert c._endpoint_failures.get(c.session.calls[0][0], 0) == 0
 
 
-def test_historical_rejects_wrong_symbol_and_disables_failed_endpoint(monkeypatch):
+def test_historical_rejects_wrong_symbol_and_disables_failed_fallback(monkeypatch):
     monkeypatch.setitem(
         FMPClient._request_with_fallback.__globals__,
         "_et_today",
         lambda: __import__("datetime").date(2026, 1, 10),
     )
-    outcomes = [Response(200, [{"symbol": "WRONG", "date": "2026-01-09"}]), Response(404)] * 3
+    # A shaped 200 for the wrong symbol is a per-symbol contract failure and
+    # must not disable the stable endpoint; the v3 fallback still returns 500s,
+    # so the breaker disables only that endpoint after three provider failures.
+    outcomes = [Response(200, [{"symbol": "WRONG", "date": "2026-01-09"}]), Response(500)] * 3
+    outcomes.append(Response(200, [{"symbol": "WRONG", "date": "2026-01-09"}]))
     c = client(*outcomes)
     for _ in range(3):
         assert c.get_historical_prices("ABC", days=2) is None
-    assert len(c._disabled_endpoints) == 2
+    assert len(c._disabled_endpoints) == 1
+    fallback = c.session.calls[-1][0].rsplit("/", 1)[0]
+    assert c._disabled_endpoints == {fallback}
     assert c.get_historical_prices("ABC", days=2) is None
-    assert len(c.session.calls) == 6
+    assert len(c.session.calls) == 7
+    assert any("ABC" in entry for entry in c.get_endpoint_report()["skipped_symbols"])

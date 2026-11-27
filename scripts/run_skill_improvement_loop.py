@@ -21,7 +21,39 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
+# Import contract: `from scripts import claude_cli` resolves the same module
+# when run as a script and when loaded by pytest. Insertion is idempotent.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from scripts import claude_cli  # noqa: E402
+
 logger = logging.getLogger("skill_improvement")
+
+# The claude executable to run. main() replaces the bare name with the newest
+# CLI on PATH, because PATH order can put an old copy first (issue #652).
+CLAUDE_BIN = "claude"
+_CLAUDE_CHOICE: claude_cli.ClaudeChoice | None = None
+
+
+def configure_claude_cli() -> bool:
+    """Pick the claude CLI for this run; False when an explicit pin is unusable."""
+    global CLAUDE_BIN, _CLAUDE_CHOICE
+    try:
+        choice = claude_cli.resolve_claude_bin()
+    except claude_cli.ClaudeBinError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return False
+    _CLAUDE_CHOICE = choice
+    CLAUDE_BIN = choice.path if choice else "claude"
+    return True
+
+
+def log_claude_choice() -> None:
+    if _CLAUDE_CHOICE is not None:
+        logger.info(claude_cli.describe(_CLAUDE_CHOICE))
+
 
 REVIEWER_SCRIPT = "skills/dual-axis-skill-reviewer/scripts/run_dual_axis_review.py"
 SELF_SKILL_NAME = "dual-axis-skill-reviewer"
@@ -34,11 +66,25 @@ HISTORY_LIMIT = 60
 LOG_RETENTION_DAYS = 30
 CLAUDE_TIMEOUT = 300
 CLAUDE_RETRIES = 2
-# A real review prompt costs about $0.6 (issue #652); $0.50 stopped every review.
-CLAUDE_BUDGET_REVIEW = 1.00
+# A real review reads many files and cost $3.18 over 4 turns in a live probe (issue #652);
+# $0.50 and $1.00 both stopped every review. A starting point, not a guarantee.
+CLAUDE_BUDGET_REVIEW = 5.00
 REVIEW_BUDGET_ENV = "SKILL_LOOP_REVIEW_BUDGET_USD"
 REVIEW_BUDGET_MIN = 0.01
-REVIEW_BUDGET_MAX = 5.0  # an unattended daily job; up to 6 calls
+REVIEW_BUDGET_MAX = 10.0  # unattended job; a stop is not retried, so at most 2 calls
+# The review prompt lists files to inspect, so the model must read them first;
+# --max-turns 1 stopped every review at its first Read call (issue #652).
+CLAUDE_REVIEW_MAX_TURNS = 12
+REVIEW_MAX_TURNS_ENV = "SKILL_LOOP_REVIEW_MAX_TURNS"
+REVIEW_MAX_TURNS_MIN = 1
+REVIEW_MAX_TURNS_MAX = 40
+REVIEW_TOOLS = "Read,Grep,Glob"  # read-only: no Bash, Edit or Write
+# Paid work (LLM review + improvement) runs at most once per interval; launchd
+# still fires daily and the in-script gate skips the days in between.
+MIN_INTERVAL_ENV = "SKILL_LOOP_MIN_INTERVAL_HOURS"
+DEFAULT_MIN_INTERVAL_HOURS = 72
+MIN_INTERVAL_HOURS_MIN = 1
+MIN_INTERVAL_HOURS_MAX = 720
 CLAUDE_BUDGET_IMPROVE = 2.00
 IMPROVEMENT_TIMEOUT = 600
 
@@ -275,6 +321,57 @@ def review_budget_usd() -> float:
     return value
 
 
+def min_interval_hours() -> int:
+    """Minimum hours between paid runs from SKILL_LOOP_MIN_INTERVAL_HOURS."""
+    raw = os.environ.get(MIN_INTERVAL_ENV)
+    if raw is None:
+        return DEFAULT_MIN_INTERVAL_HOURS
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if not (MIN_INTERVAL_HOURS_MIN <= value <= MIN_INTERVAL_HOURS_MAX):
+        logger.warning(
+            "Ignoring invalid %s=%r; using %d.", MIN_INTERVAL_ENV, raw, DEFAULT_MIN_INTERVAL_HOURS
+        )
+        return DEFAULT_MIN_INTERVAL_HOURS
+    return value
+
+
+def next_due_after_attempt(state: dict, interval_hours: int) -> datetime | None:
+    """When the next paid run is due, or None if the last attempt is unusable."""
+    stamp = state.get("last_attempt_at")
+    if not isinstance(stamp, str):
+        return None
+    try:
+        attempt = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if attempt.tzinfo is None or attempt > datetime.now(timezone.utc):
+        return None  # naive or future stamps must not block runs
+    return attempt + timedelta(hours=interval_hours)
+
+
+def review_max_turns() -> int:
+    """Review turn limit from SKILL_LOOP_REVIEW_MAX_TURNS, else the default."""
+    raw = os.environ.get(REVIEW_MAX_TURNS_ENV)
+    if raw is None:
+        return CLAUDE_REVIEW_MAX_TURNS
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if not (REVIEW_MAX_TURNS_MIN <= value <= REVIEW_MAX_TURNS_MAX):
+        logger.warning(
+            "Ignoring invalid %s=%r; using %d.",
+            REVIEW_MAX_TURNS_ENV,
+            raw,
+            CLAUDE_REVIEW_MAX_TURNS,
+        )
+        return CLAUDE_REVIEW_MAX_TURNS
+    return value
+
+
 def _cli_error(output: str) -> tuple[str, object, str] | None:
     """Return (subtype, cost, detail) when stdout is a claude CLI error envelope."""
     try:
@@ -293,7 +390,7 @@ def _cli_error(output: str) -> tuple[str, object, str] | None:
 
 def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dict | None:
     """Invoke claude CLI for LLM review. Returns parsed JSON or None."""
-    if not shutil.which("claude"):
+    if not shutil.which(CLAUDE_BIN):
         logger.warning("claude CLI not found; skipping LLM review.")
         return None
 
@@ -306,6 +403,7 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
 
     prompt_text = prompt_path.read_text(encoding="utf-8")
     budget = review_budget_usd()
+    max_turns = review_max_turns()
 
     # JSON Schema to force structured output from Claude CLI
     review_schema = json.dumps(
@@ -349,13 +447,17 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
         for attempt in range(CLAUDE_RETRIES + 1):
             try:
                 cmd = [
-                    "claude",
+                    CLAUDE_BIN,
                     "-p",
                     "--output-format",
                     "json",
                     *strategy["extra_args"],
+                    "--tools",
+                    REVIEW_TOOLS,
+                    "--allowedTools",
+                    REVIEW_TOOLS,
                     "--max-turns",
-                    "1",
+                    str(max_turns),
                     f"--max-budget-usd={budget:.2f}",
                 ]
                 # For plain-json mode, append schema instructions to the prompt
@@ -385,6 +487,16 @@ def run_llm_review(project_root: Path, skill_name: str, prompt_file: str) -> dic
                         budget,
                         cli_error[1],
                         REVIEW_BUDGET_ENV,
+                    )
+                    return None
+                if cli_error and cli_error[0] == "error_max_turns":
+                    # Deterministic for the same prompt: retrying only spends more.
+                    logger.warning(
+                        "LLM review stopped at the %d-turn limit (cost %s). "
+                        "Raise %s to allow the review.",
+                        max_turns,
+                        cli_error[1],
+                        REVIEW_MAX_TURNS_ENV,
                     )
                     return None
                 if cli_error:
@@ -718,7 +830,7 @@ def apply_improvement(
         )
         return None
 
-    if not shutil.which("claude"):
+    if not shutil.which(CLAUDE_BIN):
         logger.warning("claude CLI not found; skipping improvement.")
         return None
     if not shutil.which("gh"):
@@ -786,7 +898,7 @@ def apply_improvement(
 
         result = subprocess.run(
             [
-                "claude",
+                CLAUDE_BIN,
                 "-p",
                 "--allowedTools",
                 "Read,Edit,Write,Glob,Grep",
@@ -1138,10 +1250,15 @@ def parse_args():
     parser.add_argument(
         "--dry-run", action="store_true", help="Score only; skip improvement and PR creation"
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=f"Run even if the last attempt is newer than {MIN_INTERVAL_ENV}",
+    )
     return parser.parse_args()
 
 
-def run(project_root: Path, dry_run: bool = False) -> int:
+def run(project_root: Path, dry_run: bool = False, force: bool = False) -> int:
     """Core orchestration logic, separated from CLI for testability."""
     log_dir = project_root / LOG_DIR
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -1155,6 +1272,8 @@ def run(project_root: Path, dry_run: bool = False) -> int:
         ],
     )
 
+    log_claude_choice()
+
     if not acquire_lock(project_root):
         return 0
 
@@ -1162,6 +1281,17 @@ def run(project_root: Path, dry_run: bool = False) -> int:
         # Git safety
         if not dry_run and not git_safe_check(project_root):
             return 1
+
+        # Cadence gate: a skip is not a success, so it never touches last_success_at.
+        if not dry_run and not force:
+            due = next_due_after_attempt(load_state(project_root), min_interval_hours())
+            if due is not None and datetime.now(timezone.utc) < due:
+                logger.info(
+                    "Interval skipping: last attempt at %s, next due at %s. Use --force to run now.",
+                    load_state(project_root).get("last_attempt_at"),
+                    due.isoformat(),
+                )
+                return 0
 
         # Discover and pick skill
         skills = discover_skills(project_root)
@@ -1192,6 +1322,9 @@ def run(project_root: Path, dry_run: bool = False) -> int:
         # prompt file means no review ran, so a no-item skip must not look healthy.
         llm_review_ok = False
         if llm_prompt_file and not dry_run:
+            # Persist before the paid call so a crash or failure still spaces out retries.
+            state["last_attempt_at"] = datetime.now(timezone.utc).isoformat()
+            save_state(project_root, state)
             llm_result = run_llm_review(project_root, skill_name, llm_prompt_file)
             if llm_result:
                 # Write LLM review JSON and re-run with --llm-review-json
@@ -1278,7 +1411,9 @@ def run(project_root: Path, dry_run: bool = False) -> int:
 def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
-    return run(project_root, dry_run=args.dry_run)
+    if not configure_claude_cli():
+        return 1
+    return run(project_root, dry_run=args.dry_run, force=args.force)
 
 
 if __name__ == "__main__":

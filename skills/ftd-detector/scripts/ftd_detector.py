@@ -22,11 +22,17 @@ from datetime import datetime
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
 
+from _market_calendar import CalendarDependencyMissingError, CalendarUnavailableError
 from _price_bars import read_price
 from fmp_client import FMPClient
 from post_ftd_monitor import assess_post_ftd_health
 from rally_tracker import get_market_state
 from report_generator import generate_json_report, generate_markdown_report
+
+# Sessions fetched per symbol. The rally tracker replays the whole history, so a
+# confirmed FTD survives while its uptrend lasts. One request per symbol: the
+# API call count does not depend on this value.
+FETCH_SESSIONS = 500
 
 
 def parse_arguments():
@@ -74,9 +80,9 @@ def main():
     print("Step 1: Fetching Market Data")
     print("-" * 70)
 
-    # S&P 500 history (60 trading days)
+    # S&P 500 history (FETCH_SESSIONS trading days; the state machine replays all of it)
     print("  Fetching S&P 500 history...", end=" ", flush=True)
-    sp500_history_data = client.get_historical_prices("^GSPC", days=80)
+    sp500_history_data = client.get_historical_prices("^GSPC", days=FETCH_SESSIONS)
     sp500_history = sp500_history_data.get("historical", []) if sp500_history_data else []
     if sp500_history:
         print(f"OK ({len(sp500_history)} days)")
@@ -91,7 +97,7 @@ def main():
     )
     # Price and volume always come from the same selected instrument.
     print(f"  Fetching {nasdaq_label} history...", end=" ", flush=True)
-    qqq_history_data = client.get_historical_prices(nasdaq_symbol, days=80)
+    qqq_history_data = client.get_historical_prices(nasdaq_symbol, days=FETCH_SESSIONS)
     qqq_history = qqq_history_data.get("historical", []) if qqq_history_data else []
     if qqq_history:
         print(f"OK ({len(qqq_history)} days)")
@@ -124,7 +130,14 @@ def main():
     print("Step 2: Analyzing Market State")
     print("-" * 70)
 
-    market_state = get_market_state(sp500_history, qqq_history, nasdaq_label=nasdaq_label)
+    try:
+        market_state = get_market_state(sp500_history, qqq_history, nasdaq_label=nasdaq_label)
+    except CalendarDependencyMissingError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(2)
+    except CalendarUnavailableError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     market_state["nasdaq"]["index"] = nasdaq_label
     sp500_state = market_state["sp500"]["state"]
@@ -160,7 +173,14 @@ def main():
     sp500_chrono = list(reversed(sp500_history))
     nasdaq_chrono = list(reversed(qqq_history)) if qqq_history else []
 
-    market_state = assess_post_ftd_health(market_state, sp500_chrono, nasdaq_chrono)
+    try:
+        market_state = assess_post_ftd_health(market_state, sp500_chrono, nasdaq_chrono)
+    except CalendarDependencyMissingError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(2)
+    except CalendarUnavailableError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     quality = market_state.get("quality_score", {})
     print(f"  Quality Score: {quality.get('total_score', 0)}/100")
@@ -233,6 +253,7 @@ def main():
         },
         "market_state": {
             "combined_state": market_state["combined_state"],
+            "market_status": market_state.get("market_status"),
             "dual_confirmation": market_state["dual_confirmation"],
             "ftd_index": market_state.get("ftd_index"),
             # Downstream consumers (stanley-druckenmiller) read market_state only
@@ -285,6 +306,7 @@ def _serialize_index(idx_data: dict) -> dict:
     result = {
         "index": idx_data.get("index"),
         "state": idx_data.get("state"),
+        "market_status": idx_data.get("market_status"),
         "ftd_lifecycle": idx_data.get("ftd_lifecycle"),
         "current_price": idx_data.get("current_price"),
         "lookback_high": idx_data.get("lookback_high"),
@@ -313,12 +335,19 @@ def _serialize_index(idx_data: dict) -> dict:
         result["rally_attempt"] = {
             "day1_date": rally.get("day1_date"),
             "day1_low": rally.get("day1_low"),
+            "reference_low": rally.get("reference_low"),
+            "reference_low_date": rally.get("reference_low_date"),
             "reset_count": rally.get("reset_count", 0),
             "prior_ftd_events": rally.get("prior_ftd_events", []),
             "current_day_count": rally.get("current_day_count"),
             "invalidated": rally.get("invalidated"),
             "invalidation_reason": rally.get("invalidation_reason"),
+            "end_reason": rally.get("end_reason"),
         }
+
+    cycle = idx_data.get("cycle")
+    if cycle:
+        result["cycle"] = cycle
 
     ftd = idx_data.get("ftd")
     if ftd:
@@ -329,6 +358,7 @@ def _serialize_index(idx_data: dict) -> dict:
             "ftd_low": ftd.get("ftd_low"),
             "gain_pct": ftd.get("gain_pct"),
             "gain_tier": ftd.get("gain_tier"),
+            "volume_reference": ftd.get("volume_reference"),
             "volume_above_avg": ftd.get("volume_above_avg"),
         }
 

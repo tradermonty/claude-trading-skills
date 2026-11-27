@@ -41,7 +41,7 @@ IBD Distribution Day Monitor は、William O'Neil の CAN SLIM フレームワ�
 - QQQ + SPY を同時処理し、TQQQ 戦略を意識した重み付けで全体リスクへ統合
 
 **主な機能:**
-- Distribution Day 検出: 終値 0.2% 以上の下落 + 出来高増加。境界には float の epsilon を明示的に適用
+- Distribution Day 検出: 終値 0.2% 以上の下落 + 基準セッション（通常は前日、早期終了日とその翌日は直近の通常取引時間セッション）比で出来高増加。境界には float の epsilon を明示的に適用
 - 25セッション失効と 5% 無効化を別軸で追跡し、`removal_reason` に `expired_25_sessions` または `invalidated_5pct_gain` を記録
 - 表示用と無効化判定用で `high_since` の範囲を分離: DD 当日の intraday high は表示には含むが同じ DD の無効化には使用しない
 - `invalidation_price_source` を選択可能: `high`（保守的、デフォルト）または `close`（終値ベース）

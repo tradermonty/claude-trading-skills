@@ -900,6 +900,51 @@ def test_losing_streak_triggers_cooldown(tmp_path: Path):
     assert all(rule["rule"] != "incomplete_state_data" for rule in result["triggered_rules"])
 
 
+@pytest.mark.parametrize(
+    ("friday", "offset", "before_release", "release"),
+    [
+        (
+            "2026-03-06",
+            "-05:00",
+            "2026-03-09T10:30:00-04:00",
+            "2026-03-09T11:00:00-04:00",
+        ),
+        (
+            "2026-10-30",
+            "-04:00",
+            "2026-11-02T08:59:59-05:00",
+            "2026-11-02T09:00:00-05:00",
+        ),
+    ],
+    ids=["spring-forward", "fall-back"],
+)
+def test_losing_streak_cooldown_measures_elapsed_hours_across_dst(
+    tmp_path: Path, friday: str, offset: str, before_release: str, release: str
+):
+    state_dir = tmp_path / "theses"
+    for ticker, hour in (("AAA", "09:45"), ("BBB", "10:00")):
+        exit_date = f"{friday}T{hour}:00{offset}"
+        write_thesis(
+            state_dir,
+            f"th_{ticker.lower()}_gm_{friday.replace('-', '')}_0001",
+            ticker=ticker,
+            history=[{"status": "CLOSED", "at": exit_date, "realized_pnl": -100.0}],
+            pnl_dollars=-100.0,
+            exit_date=exit_date,
+        )
+
+    config = CircuitConfig(cooldown_hours=72)
+    before = evaluate_state(state_dir, as_of=before_release, config=config)
+    assert before["data_quality"] == "OK"
+    assert before["recommendation"] == "COOLDOWN"
+    assert before["triggered_rules"][0]["rule"] == "losing_streak_cooldown"
+    assert before["triggered_rules"][0]["active_until"] == release
+
+    at_release = evaluate_state(state_dir, as_of=release, config=config)
+    assert at_release["recommendation"] == "TRADING_ALLOWED"
+    assert at_release["triggered_rules"] == []
+
+
 def test_losing_streak_resets_on_break_even_and_expires_after_24h(tmp_path: Path):
     state_dir = tmp_path / "theses"
     write_thesis(

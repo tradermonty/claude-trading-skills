@@ -23,11 +23,13 @@ anomaly/severity table, and the manual fixture-refresh procedure.
 from __future__ import annotations
 
 import csv
+import importlib.util
 import io
 import math
 import re
 from dataclasses import dataclass, field
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -63,6 +65,44 @@ COINGECKO_QUERY = {
     "page": "1",
     "sparkline": "false",
 }
+
+COINGECKO_PROBES = {
+    "coins-markets": (COINGECKO_PATH, COINGECKO_QUERY),
+    "global": ("/api/v3/global", {}),
+    "market-chart": ("/api/v3/coins/bitcoin/market_chart", {"vs_currency": "usd", "days": "365"}),
+}
+
+
+@lru_cache(maxsize=1)
+def _coingecko_helper():
+    # Fixed repository-owned path, never derived from a contract or response.
+    path = ROOT / "skills/crypto-regime-analyzer/scripts/coingecko_payloads.py"
+    spec = importlib.util.spec_from_file_location("_cts_coingecko_payloads", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def normalize_coingecko(endpoint, payload):
+    if endpoint == "coins-markets":
+        return payload
+    helper = _coingecko_helper()
+    if endpoint == "global":
+        return helper.global_rows(payload)
+    if endpoint == "market-chart":
+        return helper.market_chart_rows(payload)
+    raise ValueError("COINGECKO_UNSUPPORTED_ENDPOINT")
+
+
+def coingecko_response_count(endpoint, payload):
+    """Response evidence count, not an assertion of valid normalized rows."""
+    if endpoint == "market-chart" and isinstance(payload, dict):
+        if isinstance(payload.get("prices"), list):
+            return len(payload["prices"])
+    if isinstance(payload, (dict, list, str)):
+        return int(bool(payload)) if not isinstance(payload, list) else len(payload)
+    return 0 if payload is None else 1
+
 
 _APIKEY_RE = re.compile(r"([?&](?:apikey|api_key)=)[^&\s]+", re.IGNORECASE)
 
@@ -151,6 +191,7 @@ class Contract:
     url: str = ""
     max_bytes: Any = None  # raw JSON value; validated by validate_contract_file
     required_values: dict[str, Any] = field(default_factory=dict)
+    response_fixture: Any = None  # raw projected response before endpoint normalization
 
     @property
     def effective_max_bytes(self) -> int:
@@ -202,6 +243,7 @@ def _contract_from_data(file_path: Path, data: dict[str, Any]) -> Contract:
         url=str(data.get("url", "") or ""),
         max_bytes=data.get("max_bytes"),
         required_values=data.get("required_values") or {},
+        response_fixture=data.get("response_fixture"),
     )
 
 
@@ -328,12 +370,21 @@ def validate_contract_file(contract: Contract, skills_index_ids: Any) -> list[st
             errors.append(f"{label}: owner '{owner}' is not a skill in skills-index.yaml")
 
     errors.extend(_validate_format_keys(contract, label))
-    if contract.provider == "coingecko" and (
-        contract.format != "json"
-        or contract.endpoint_path != COINGECKO_PATH
-        or contract.query != COINGECKO_QUERY
-    ):
-        errors.append(f"{label}: unsupported CoinGecko probe configuration")
+    if contract.provider == "coingecko":
+        probe = COINGECKO_PROBES.get(contract.endpoint)
+        if (
+            not probe
+            or contract.format != "json"
+            or (contract.endpoint_path, contract.query) != probe
+        ):
+            errors.append(f"{label}: unsupported CoinGecko probe configuration")
+        if contract.endpoint in {"global", "market-chart"}:
+            try:
+                normalized = normalize_coingecko(contract.endpoint, contract.response_fixture)
+                if normalized != contract.fixture:
+                    errors.append(f"{label}: raw and normalized fixtures disagree")
+            except ValueError:
+                errors.append(f"{label}: raw response fixture fails normalization")
 
     if not contract.fixture:
         errors.append(f"{label}: fixture must have at least one row")
