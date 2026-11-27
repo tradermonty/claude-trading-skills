@@ -1182,6 +1182,17 @@ def test_report_skips_position_sizing_for_a_non_positive_hedge_ratio(capsys):
     assert "LONG BBB" not in out
 
 
+def test_share_space_position_size_rejects_unusable_inputs():
+    assert analyze_spread.share_space_position_size(100.0, 50.0, 1.2, 10000) is not None
+    for beta in (0.0, -1.2, float("nan"), float("inf")):
+        assert analyze_spread.share_space_position_size(100.0, 50.0, beta, 10000) is None
+    for price_a, price_b in ((0.0, 50.0), (-100.0, 50.0), (float("nan"), 50.0)):
+        assert analyze_spread.share_space_position_size(price_a, price_b, 1.2, 10000) is None
+    shares_a, shares_b = analyze_spread.share_space_position_size(100.0, 50.0, 1.2, 10000)
+    assert shares_b == 1.2 * shares_a
+    assert abs(shares_a * 100.0 + shares_b * 50.0 - 10000) < 1e-9
+
+
 def test_report_long_spread_signal_and_sizing(capsys):
     out, a, b = render_report(capsys, current_zscore=-2.4, p_value=0.03, half_life=45.0)
 
