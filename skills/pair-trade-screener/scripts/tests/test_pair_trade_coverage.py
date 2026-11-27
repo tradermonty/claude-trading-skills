@@ -1178,6 +1178,7 @@ def test_report_skips_position_sizing_for_a_non_positive_hedge_ratio(capsys):
     out, a, b = render_report(capsys, current_zscore=2.4, beta=0.0)
 
     assert "Position sizing unavailable" in out
+    assert "beta = 0.0000" in out
     assert "SHORT AAA" not in out
     assert "LONG BBB" not in out
 

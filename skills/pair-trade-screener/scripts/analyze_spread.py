@@ -362,9 +362,15 @@ def print_analysis_report(
             price_a, price_b, beta_result["beta"], portfolio_allocation
         )
         if sizing is None:
+            beta_value = beta_result.get("beta")
+            beta_label = (
+                f"{float(beta_value):.4f}"
+                if isinstance(beta_value, (int, float)) and math.isfinite(beta_value)
+                else "n/a"
+            )
             print(
                 "  Position sizing unavailable: the hedge ratio must be positive "
-                "and both prices finite."
+                f"(beta = {beta_label}) and both prices finite."
             )
         else:
             shares_a, shares_b = sizing
