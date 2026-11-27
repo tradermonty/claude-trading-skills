@@ -30,15 +30,11 @@ class DriftCeilingTest(unittest.TestCase):
     def _write_ceiling(self, pages):
         path = self.root / "docs/dev/skill-doc-drift-baseline.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps({"schema_version": 1, "drift_pages": pages}), encoding="utf-8"
-        )
+        path.write_text(json.dumps({"schema_version": 1, "drift_pages": pages}), encoding="utf-8")
         return path
 
     def _run(self, *extra):
-        return drift.main(
-            ["--root", str(self.root), "--markdown-output", str(self.output), *extra]
-        )
+        return drift.main(["--root", str(self.root), "--markdown-output", str(self.output), *extra])
 
     def test_default_ceiling_fails_on_new_drift(self):
         self._write_ceiling(0)
