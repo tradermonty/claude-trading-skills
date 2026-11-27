@@ -440,6 +440,11 @@ For each skill's FMP, FINVIZ Elite and Alpaca requirements, see the [API Require
   export ALPACA_PAPER="true"  # or "false" for live trading
   ```
 
+**Web search (optional backend):**
+- Skills that list `websearch` (such as `market-news-analyst` and `market-environment-analysis`) use the built-in WebSearch / WebFetch tools by default; nothing changes if you keep them
+- You can add any web search MCP server or CLI to your Claude setup instead. [Firecrawl](https://www.firecrawl.dev/) is one example ([install docs](https://docs.firecrawl.dev/mcp-server)), and its finance sources are listed on [Firecrawl Alexandria](https://alexandria.firecrawl.dev/categories/finance)
+- The skills don't switch backends on their own, so ask Claude to use the one you added
+
 ## Support & Further Reading
 - Claude Skills launch overview: https://www.anthropic.com/news/skills
 - Claude Code Skills how-to: https://docs.claude.com/en/docs/claude-code/skills
