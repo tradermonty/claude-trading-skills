@@ -1333,8 +1333,9 @@ def test_plan_gated_symbol_is_reported_as_unavailable(monkeypatch, tmp_path, cap
     payload, _ = read_report(out)
     audit = payload["audit"]
     assert audit["symbols_loaded"] == ["SPY"]
+    detail = f"FMP plan does not serve price history for QQQ: {client._last_error}"
     assert audit["symbols_unavailable"] == [
-        {"symbol": "QQQ", "reason": "plan_gated", "detail": client._last_error}
+        {"symbol": "QQQ", "reason": "plan_gated", "detail": detail}
     ]
     assert "plan_gated_symbols" in audit["audit_flags"]
     md = sorted(out.glob("*.md"))[0].read_text(encoding="utf-8")
