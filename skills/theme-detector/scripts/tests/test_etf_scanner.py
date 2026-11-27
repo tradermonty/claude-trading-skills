@@ -121,6 +121,19 @@ class TestCalculateRSI:
         rsi = ETFScanner._calculate_rsi(prices, period=14)
         assert rsi == 100.0
 
+    def test_nan_close_returns_none(self):
+        """A NaN close makes the window unusable instead of fabricating an RSI."""
+        prices = pd.Series([float(i) for i in range(1, 20)])
+        prices.iloc[5] = float("nan")
+        assert ETFScanner._calculate_rsi(prices, period=14) is None
+
+    def test_nan_close_at_window_edges_returns_none(self):
+        """The guard covers the first and last bar, not only interior gaps."""
+        for position in (0, -1):
+            prices = pd.Series([float(i) for i in range(1, 20)])
+            prices.iloc[position] = float("nan")
+            assert ETFScanner._calculate_rsi(prices, period=14) is None
+
 
 # ---------------------------------------------------------------------------
 # TestCalculate52wDistances

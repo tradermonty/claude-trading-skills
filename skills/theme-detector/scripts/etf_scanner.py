@@ -674,6 +674,10 @@ class ETFScanner:
         """Calculate RSI using Wilder's smoothing method."""
         if prices is None or len(prices) < period + 1:
             return None
+        if prices.isna().any():
+            # A missing close would otherwise be read as a zero daily change and
+            # fabricate an RSI; the other skill copies fail closed here too.
+            return None
 
         deltas = prices.diff()
 
