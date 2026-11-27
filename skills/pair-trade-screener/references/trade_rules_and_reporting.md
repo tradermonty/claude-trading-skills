@@ -56,19 +56,26 @@ Prevents holding broken pairs indefinitely
 
 **Market Neutral Sizing:**
 
-For a pair (Stock A, Stock B) with beta = β:
+For a pair (Stock A, Stock B) with price-level hedge ratio beta = β:
 
-**Equal Dollar Exposure:**
+**Spread-Neutral Share Sizing:**
 ```
-If portfolio size = $10,000 allocated to this pair:
-- Long $5,000 of Stock A
-- Short $5,000 × β of Stock B
+The tested spread is price_a - β * price_b, so leg B must hold β shares
+for every share of leg A, and the two notionals together use the whole
+pair allocation:
+- shares_A = allocation / (price_A + β * price_B)
+- shares_B = β * shares_A
 
-Example (β = 1.2):
-- Long $5,000 Stock A
-- Short $6,000 Stock B
-→ Market neutral, beta = 0
+Example (allocation $10,000, price_A = $242.50, price_B = $48.00, β = 4.98):
+- SHORT $5,039 of Stock A (21 shares)
+- LONG $4,961 of Stock B (103 shares)
+→ 103 / 21 ≈ 4.98 = β, gross notional $10,000, and $0.00 P&L on a
+  zero-spread common move
 ```
+
+Do not multiply leg A's **dollars** by β: β is shares of B per share of A,
+so a dollar multiplier adds a price_A / price_B factor and leaves the pair
+directionally exposed. If β ≤ 0, do not print an example allocation.
 
 **Position Sizing Considerations:**
 - Total pair allocation: 10-20% of portfolio per pair

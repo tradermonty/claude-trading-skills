@@ -225,6 +225,28 @@ def generate_ascii_chart(zscore, width=60, height=15):
     return "\n".join(lines)
 
 
+def share_space_position_size(price_a, price_b, beta, allocation):
+    """Size both legs in share space from the price-level hedge ratio.
+
+    ``calculate_hedge_ratio`` regresses price levels, so beta is shares of B
+    per share of A. Multiplying leg-A dollars by beta adds a P_A/P_B factor
+    that breaks the spread neutrality the pair was selected for.
+    """
+    try:
+        price_a = float(price_a)
+        price_b = float(price_b)
+        beta = float(beta)
+        allocation = float(allocation)
+    except (TypeError, ValueError):
+        return None
+    if not all(math.isfinite(value) for value in (price_a, price_b, beta, allocation)):
+        return None
+    if price_a <= 0 or price_b <= 0 or beta <= 0 or allocation <= 0:
+        return None
+    shares_a = allocation / (price_a + beta * price_b)
+    return shares_a, beta * shares_a
+
+
 def print_analysis_report(
     symbol_a,
     symbol_b,
@@ -334,26 +356,36 @@ def print_analysis_report(
         portfolio_allocation = 10000  # Example $10k allocation
         print(f"  Example Allocation: ${portfolio_allocation:,}")
 
-        if current_zscore > entry_zscore:
-            # Short A, Long B
-            short_a = portfolio_allocation / 2
-            long_b = short_a * beta_result["beta"]
+        price_a = prices_a.iloc[-1]
+        price_b = prices_b.iloc[-1]
+        sizing = share_space_position_size(
+            price_a, price_b, beta_result["beta"], portfolio_allocation
+        )
+        if sizing is None:
             print(
-                f"  SHORT {symbol_a}: ${short_a:,.0f} ({short_a / prices_a.iloc[-1]:.0f} shares @ ${prices_a.iloc[-1]:.2f})"
-            )
-            print(
-                f"  LONG {symbol_b}: ${long_b:,.0f} ({long_b / prices_b.iloc[-1]:.0f} shares @ ${prices_b.iloc[-1]:.2f})"
+                "  Position sizing unavailable: the hedge ratio must be positive "
+                "and both prices finite."
             )
         else:
-            # Long A, Short B
-            long_a = portfolio_allocation / 2
-            short_b = long_a * beta_result["beta"]
-            print(
-                f"  LONG {symbol_a}: ${long_a:,.0f} ({long_a / prices_a.iloc[-1]:.0f} shares @ ${prices_a.iloc[-1]:.2f})"
-            )
-            print(
-                f"  SHORT {symbol_b}: ${short_b:,.0f} ({short_b / prices_b.iloc[-1]:.0f} shares @ ${prices_b.iloc[-1]:.2f})"
-            )
+            shares_a, shares_b = sizing
+            dollars_a = shares_a * price_a
+            dollars_b = shares_b * price_b
+            if current_zscore > entry_zscore:
+                # Short A, Long B
+                print(
+                    f"  SHORT {symbol_a}: ${dollars_a:,.0f} ({shares_a:.0f} shares @ ${price_a:.2f})"
+                )
+                print(
+                    f"  LONG {symbol_b}: ${dollars_b:,.0f} ({shares_b:.0f} shares @ ${price_b:.2f})"
+                )
+            else:  # current_zscore < -entry_zscore
+                # Long A, Short B
+                print(
+                    f"  LONG {symbol_a}: ${dollars_a:,.0f} ({shares_a:.0f} shares @ ${price_a:.2f})"
+                )
+                print(
+                    f"  SHORT {symbol_b}: ${dollars_b:,.0f} ({shares_b:.0f} shares @ ${price_b:.2f})"
+                )
 
         print("\n  Exit Conditions:")
         print(f"    - Primary: Z-score crosses {exit_zscore} (mean reversion)")

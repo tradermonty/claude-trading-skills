@@ -1131,6 +1131,15 @@ def render_report(capsys, *, current_zscore, entry=2.0, exit_=0.5, half_life=20.
     return capsys.readouterr().out, a, b
 
 
+def expected_sizing(a, b, beta=1.2, allocation=10000):
+    """Share-space legs: n_B = beta * n_A and n_A * P_A + n_B * P_B = allocation."""
+    price_a = a.iloc[-1]
+    price_b = b.iloc[-1]
+    shares_a = allocation / (price_a + beta * price_b)
+    shares_b = beta * shares_a
+    return shares_a, shares_b, shares_a * price_a, shares_b * price_b
+
+
 def test_report_short_spread_signal_and_sizing(capsys):
     out, a, b = render_report(capsys, current_zscore=2.4)
 
@@ -1144,22 +1153,45 @@ def test_report_short_spread_signal_and_sizing(capsys):
     assert "Speed: Fast" in out
     assert "Signal: 🔻 SHORT SPREAD" in out
     assert "Action: Short AAA, Long BBB" in out
-    assert "SHORT AAA: $5,000" in out
+    shares_a, shares_b, dollars_a, dollars_b = expected_sizing(a, b)
+    assert f"SHORT AAA: ${dollars_a:,.0f}" in out
     assert f"@ ${a.iloc[-1]:.2f})" in out
-    assert f"LONG BBB: ${5000 * 1.2:,.0f}" in out
+    assert f"LONG BBB: ${dollars_b:,.0f}" in out
+    assert f"({shares_b:.0f} shares @ ${b.iloc[-1]:.2f})" in out
     assert "Primary: Z-score crosses 0.5" in out
     assert "[ Z-SCORE CHART ]" in out
 
 
+def test_position_sizing_is_share_neutral_within_the_allocation(capsys):
+    out, a, b = render_report(capsys, current_zscore=2.4)
+    shares_a, shares_b, dollars_a, dollars_b = expected_sizing(a, b)
+
+    # The tested spread is price_a - beta * price_b, so leg B holds beta times
+    # leg A's shares and the two notionals add up to the example allocation.
+    assert f"({shares_a:.0f} shares @ ${a.iloc[-1]:.2f})" in out
+    assert f"({shares_b:.0f} shares @ ${b.iloc[-1]:.2f})" in out
+    assert abs(shares_b / shares_a - 1.2) < 1e-12
+    assert abs(dollars_a + dollars_b - 10000) < 1e-9
+
+
+def test_report_skips_position_sizing_for_a_non_positive_hedge_ratio(capsys):
+    out, a, b = render_report(capsys, current_zscore=2.4, beta=0.0)
+
+    assert "Position sizing unavailable" in out
+    assert "SHORT AAA" not in out
+    assert "LONG BBB" not in out
+
+
 def test_report_long_spread_signal_and_sizing(capsys):
-    out, _, _ = render_report(capsys, current_zscore=-2.4, p_value=0.03, half_life=45.0)
+    out, a, b = render_report(capsys, current_zscore=-2.4, p_value=0.03, half_life=45.0)
 
     assert "Strength: ★★ Moderate" in out
     assert "Speed: Moderate" in out
     assert "Signal: 🔺 LONG SPREAD" in out
     assert "Action: Long AAA, Short BBB" in out
-    assert "LONG AAA: $5,000" in out
-    assert f"SHORT BBB: ${5000 * 1.2:,.0f}" in out
+    shares_a, shares_b, dollars_a, dollars_b = expected_sizing(a, b)
+    assert f"LONG AAA: ${dollars_a:,.0f}" in out
+    assert f"SHORT BBB: ${dollars_b:,.0f}" in out
 
 
 def test_report_wait_signal_has_no_position_sizing(capsys):
