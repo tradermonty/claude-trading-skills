@@ -830,7 +830,16 @@ class _Replay:
             "resumed_without_ftd": bool(self.resumed and confirmed),
             "parameters": dict(self.params),
             "active_distribution_days": [
-                {"date": d["date"], "close": d["close"], "change_pct": d["change_pct"]}
+                {
+                    "date": d["date"],
+                    "close": d["close"],
+                    "change_pct": d["change_pct"],
+                    **(
+                        {"volume_reference": d["volume_reference"]}
+                        if "volume_reference" in d
+                        else {}
+                    ),
+                }
                 for d in self.active_dds()
             ]
             if confirmed

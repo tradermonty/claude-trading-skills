@@ -91,7 +91,17 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
             "XNYS", session_dates, i, order="chronological"
         )
         if reference_idx is None:
-            continue
+            return {
+                "distribution_count": 0,
+                "days_monitored": days_monitored,
+                "earliest_distribution_day": None,
+                "details": [],
+                "data_gap": True,
+                "reason": (
+                    "Data gap: no full session reference for "
+                    f"{history[i].get('date', 'N/A')}"
+                ),
+            }
         prev_volume = read_price(history[reference_idx], "volume")
         if prev_volume is None:
             return {

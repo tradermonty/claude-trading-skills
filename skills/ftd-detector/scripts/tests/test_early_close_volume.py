@@ -172,3 +172,58 @@ class TestPostFtdDistribution:
             self.ftd_history(after_early_volume=900_000, early_close_volume=800_000), 0
         )
         assert result["distribution_count"] == 0
+
+    def test_unavailable_reference_is_a_data_gap_not_a_clean_day(self):
+        truncated = [
+            {
+                "date": EARLY_FRIDAY,
+                "close": 99.4,
+                "volume": 500_000,
+                "high": 99.9,
+                "low": 98.9,
+            },
+            {
+                "date": NEXT_MONDAY,
+                "close": 98.9,
+                "volume": 900_000,
+                "high": 99.0,
+                "low": 98.0,
+            },
+        ]
+        result = count_post_ftd_distribution(truncated, 0)
+        assert result["data_gap"] is True
+        assert result["distribution_count"] == 0
+        assert "no full session reference" in result["reason"]
+
+
+def test_cycle_projection_keeps_the_volume_reference():
+    from rally_tracker import _Replay
+
+    history = [B(100.0)]
+    history[0]["date"] = NEXT_MONDAY
+    replay = _Replay(history, 0)
+    replay.phase = "confirmed"
+    replay.dds = [
+        {
+            "date": NEXT_MONDAY,
+            "close": 98.9,
+            "change_pct": -1.2,
+            "active": True,
+            "volume_reference": {
+                "basis": "previous_full_session",
+                "date": FULL_WEDNESDAY,
+            },
+        }
+    ]
+    cycle = replay.cycle(history, False)
+    assert cycle["active_distribution_days"] == [
+        {
+            "date": NEXT_MONDAY,
+            "close": 98.9,
+            "change_pct": -1.2,
+            "volume_reference": {
+                "basis": "previous_full_session",
+                "date": FULL_WEDNESDAY,
+            },
+        }
+    ]

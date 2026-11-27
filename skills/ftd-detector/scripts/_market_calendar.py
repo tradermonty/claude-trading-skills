@@ -377,8 +377,9 @@ def previous_full_session_index(
     Returns ``(index, basis)`` where ``basis`` is ``"previous_session"`` for a
     normal comparison, ``"previous_full_session"`` when the session or the one
     before it closed early, and ``"unavailable"`` when no earlier full session
-    exists in the supplied history. Bars whose date cannot be parsed keep the
-    plain previous-session comparison.
+    exists in the supplied history. During the scan, bars whose date cannot be
+    parsed and bars that are not sessions (weekends, holidays) are skipped, so a
+    placeholder row can never be used as the reference.
     """
     if isinstance(index, bool) or not isinstance(index, int):
         raise TypeError("index must be an integer")
@@ -399,7 +400,9 @@ def previous_full_session_index(
     candidate = previous_index
     while 0 <= candidate < len(session_values):
         value = parse_session_date(session_values[candidate])
-        if value is None or not is_early_close(venue, value):
-            return candidate, "previous_full_session"
+        if value is not None:
+            session = session_for_date(venue, value)
+            if session is not None and not is_early_close(venue, value):
+                return candidate, "previous_full_session"
         candidate += step
     return None, "unavailable"
