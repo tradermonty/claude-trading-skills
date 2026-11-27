@@ -435,8 +435,8 @@ Conditions:
 5. No structural breaks in recent 6 months
 
 Action:
-- Buy Stock A: $5,000
-- Sell Stock B: $5,000 × β
+- Buy Stock A: shares_A = allocation / (price_A + β * price_B)
+- Sell Stock B: β * shares_A shares
 ```
 
 **SHORT Spread (Short A, Long B):**
@@ -446,8 +446,8 @@ Conditions:
 2. [Same conditions 2-5 as above]
 
 Action:
-- Sell Stock A: $5,000
-- Buy Stock B: $5,000 × β
+- Sell Stock A: shares_A = allocation / (price_A + β * price_B)
+- Buy Stock B: β * shares_A shares
 ```
 
 **Aggressive Strategy (Z ≥ ±1.5):**
@@ -516,15 +516,17 @@ Maximum Holding Period: 90 days (or 3× half-life)
 
 ### Position Sizing
 
-**Equal Dollar Allocation:**
+**Spread-Neutral Share Allocation:**
 ```
-For $10,000 total allocation to one pair:
-- Long Leg: $5,000
-- Short Leg: $5,000 × β
+For $10,000 total allocation to one pair, with price-level beta β:
+- shares_A = allocation / (price_A + β * price_B)
+- shares_B = β * shares_A
 
-If β = 1.2:
-- Long Stock A: $5,000
-- Short Stock B: $6,000
+If price_A = $242.50, price_B = $48.00, β = 4.98:
+- Short Stock A: ≈21 shares ($5,039)
+- Long Stock B: ≈103 shares ($4,961)
+
+β is shares of B per share of A; do not multiply leg A's dollars by β.
 ```
 
 **Volatility-Adjusted Sizing:**
