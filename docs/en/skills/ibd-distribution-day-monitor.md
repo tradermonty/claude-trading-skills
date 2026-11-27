@@ -41,7 +41,7 @@ IBD Distribution Day Monitor automates the single most actionable signal in Will
 - Handles QQQ + SPY simultaneously and combines them with a TQQQ-weighted policy that escalates broad-market degradation.
 
 **Key capabilities:**
-- Distribution Day detection: close down at least 0.2% on higher volume, with explicit float epsilon at the boundary
+- Distribution Day detection: close down at least 0.2% on higher volume than the reference session (the previous session, or the last full session on an early-close day and the session after it), with explicit float epsilon at the boundary
 - 25-session expiration AND 5% invalidation tracked separately, with `removal_reason` recorded as `expired_25_sessions` or `invalidated_5pct_gain`
 - Display-vs-invalidation `high_since` separation: DD day's intraday high is shown but never used to invalidate the same DD
 - Configurable `invalidation_price_source`: `high` (conservative, default) or `close` (closing-price only)

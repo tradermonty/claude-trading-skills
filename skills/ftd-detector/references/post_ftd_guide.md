@@ -26,7 +26,9 @@ A confirmed Follow-Through Day (FTD) shifts the probability toward a new uptrend
 ### What Is a Post-FTD Distribution Day?
 A distribution day after an FTD is defined as:
 - Index declines >= 0.2% from the prior day's close
-- Volume is higher than the previous day's volume
+- Volume is higher than the reference session's volume: normally the previous
+  session, or the most recent full-length session on an early-close (half-day)
+  session and on the session after it (recorded as `volume_reference`)
 - Occurs within the first 5 trading days after the FTD
 
 ### Distribution timing (heuristic, not calibrated failure rates)

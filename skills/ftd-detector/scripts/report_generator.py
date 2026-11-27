@@ -5,6 +5,8 @@ FTD Detector - Report Generator
 Generates JSON and Markdown reports for FTD detection analysis.
 """
 
+from __future__ import annotations
+
 import json
 import math
 
@@ -381,7 +383,9 @@ def generate_markdown_report(analysis: dict, output_file: str):
     lines.append(
         "2. **Rally Attempt:** Day 1 (up close or upper-half close); the attempt fails if an intraday low undercuts the rally low"
     )
-    lines.append("3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than previous day")
+    lines.append(
+        "3. **FTD (Day 4-10):** 1.25%+ gain on volume higher than the reference session (the previous session, or the last full session on an early-close day and the session after it)"
+    )
     lines.append(
         "4. **Quality Score:** Multi-factor 0-100 score (day timing, gain size, "
         "volume, dual-index, post-FTD health)"

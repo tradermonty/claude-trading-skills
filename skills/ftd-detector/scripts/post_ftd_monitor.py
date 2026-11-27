@@ -14,7 +14,8 @@ with ``data_gap: True`` and a ``reason``. The quality score then stays an int:
 ``0`` with signal ``"Unavailable: data gap"``, never ``None``.
 """
 
-from _price_bars import find_bar_gaps
+from _market_calendar import previous_full_session_index
+from _price_bars import find_bar_gaps, read_price
 from ftd_lifecycle import assess_lifecycle, select_ftd_source
 
 UNAVAILABLE_SIGNAL = "Unavailable: data gap"
@@ -40,6 +41,9 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
     """
     Count distribution days (down days on higher volume) after FTD.
 
+    Volume is compared with the reference session: the previous session, or the
+    most recent full-length session on an early-close session and the session
+    after it (issue #892).
     Distribution within first 1-2 days = very bearish (FTD likely fails)
     Distribution on day 3 = moderately bearish
     Distribution on day 4-5 = mild negative
@@ -76,27 +80,58 @@ def count_post_ftd_distribution(history: list[dict], ftd_idx: int) -> dict:
 
     distributions = []
     days_monitored = 0
+    session_dates = [bar.get("date") for bar in history]
 
     for i in range(ftd_idx + 1, end):
         days_monitored += 1
         curr_close = history[i]["close"]
         prev_close = history[i - 1]["close"]
         curr_volume = history[i]["volume"]
-        prev_volume = history[i - 1]["volume"]  # validated > 0 above
+        reference_idx, reference_basis = previous_full_session_index(
+            "XNYS", session_dates, i, order="chronological"
+        )
+        if reference_idx is None:
+            return {
+                "distribution_count": 0,
+                "days_monitored": days_monitored,
+                "earliest_distribution_day": None,
+                "details": [],
+                "data_gap": True,
+                "reason": (
+                    f"Data gap: no full session reference for {history[i].get('date', 'N/A')}"
+                ),
+            }
+        prev_volume = read_price(history[reference_idx], "volume")
+        if prev_volume is None:
+            return {
+                "distribution_count": 0,
+                "days_monitored": days_monitored,
+                "earliest_distribution_day": None,
+                "details": [],
+                "data_gap": True,
+                "reason": (
+                    "Data gap: volume reference "
+                    f"{history[reference_idx].get('date', 'N/A')} unavailable"
+                ),
+            }
 
         change_pct = (curr_close - prev_close) / prev_close * 100
 
         # Distribution day: down >= 0.2% on higher volume
         if change_pct <= -0.2 and curr_volume > prev_volume:
             day_num = i - ftd_idx
-            distributions.append(
-                {
-                    "day": day_num,
-                    "date": history[i].get("date", "N/A"),
-                    "change_pct": round(change_pct, 2),
-                    "volume_change_pct": round((curr_volume / prev_volume - 1) * 100, 1),
+            distribution_day = {
+                "day": day_num,
+                "date": history[i].get("date", "N/A"),
+                "change_pct": round(change_pct, 2),
+                "volume_change_pct": round((curr_volume / prev_volume - 1) * 100, 1),
+            }
+            if reference_basis == "previous_full_session" and reference_idx is not None:
+                distribution_day["volume_reference"] = {
+                    "basis": reference_basis,
+                    "date": history[reference_idx].get("date", "N/A"),
                 }
-            )
+            distributions.append(distribution_day)
 
     earliest = distributions[0]["day"] if distributions else None
 
