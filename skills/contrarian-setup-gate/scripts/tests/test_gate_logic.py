@@ -896,6 +896,11 @@ def test_price_action_confirmed_reasons_matches_technical_analyst_source() -> No
         / "weekly_price_action.py"
     )
     assert ta_module_path.exists(), f"technical-analyst module not found at {ta_module_path}"
+    # weekly_price_action now imports its vendored sibling _price_bars, so the
+    # module's own directory must be importable when it is loaded by path.
+    ta_scripts_dir = ta_module_path.parent
+    if str(ta_scripts_dir) not in sys.path:
+        sys.path.insert(0, str(ta_scripts_dir))
     spec = importlib.util.spec_from_file_location(
         "weekly_price_action_for_gate_test", ta_module_path
     )

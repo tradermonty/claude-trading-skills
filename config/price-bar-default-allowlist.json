@@ -28,20 +28,6 @@
       "field": "close",
       "count": 1,
       "reason": "not a price bar (pending rewrite)"
-    },
-    {
-      "path": "skills/technical-analyst/scripts/weekly_price_action.py",
-      "scope": "build_sorted_daily_series",
-      "field": "volume",
-      "count": 1,
-      "reason": "pending #655 migration: technical-analyst"
-    },
-    {
-      "path": "skills/technical-analyst/scripts/weekly_price_action.py",
-      "scope": "resample_weekly",
-      "field": "volume",
-      "count": 1,
-      "reason": "pending #655 migration: technical-analyst"
     }
   ]
 }
