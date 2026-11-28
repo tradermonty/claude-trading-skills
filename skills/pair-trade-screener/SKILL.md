@@ -158,10 +158,10 @@ For each candidate pair (Stock A, Stock B):
 Beta = Covariance(A, B) / Variance(B)
 ```
 
-Beta indicates the hedge ratio:
-- Beta = 1.0: Equal dollar amounts
-- Beta = 1.5: $1.50 of B for every $1.00 of A
-- Beta = 0.8: $0.80 of B for every $1.00 of A
+Beta indicates the share hedge ratio from price-level OLS (`Price_A = alpha + Beta × Price_B`):
+- Beta = 1.0: 1 share of B for every 1 share of A
+- Beta = 1.5: 1.5 shares of B for every 1 share of A (dollar ratio = `Beta × Price_B / Price_A`)
+- Beta = 0.8: 0.8 shares of B for every 1 share of A (dollar ratio = `Beta × Price_B / Price_A`)
 
 **Correlation Stability Check:**
 - Calculate correlation over multiple periods (6mo, 1yr, 2yr)

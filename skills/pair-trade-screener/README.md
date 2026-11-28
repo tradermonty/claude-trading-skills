@@ -185,8 +185,8 @@ PAIR TRADE ANALYSIS: AAPL / MSFT
 
 [ POSITION SIZING ]
   Example Allocation: $10,000
-  LONG AAPL: $5,000 (27 shares @ $185.50)
-  SHORT MSFT: $5,762 (14 shares @ $411.25)
+  LONG AAPL: $2,813 (15 shares @ $185.50)
+  SHORT MSFT: $7,187 (17 shares @ $411.25)
 
   Exit Conditions:
     - Primary: Z-score crosses 0 (mean reversion)
@@ -224,9 +224,9 @@ PAIR TRADE ANALYSIS: AAPL / MSFT
 - **Stop:** |Z| > 3.0 (extreme divergence)
 
 ### Hedge Ratio (Beta)
-- **Meaning:** Dollar amount of Stock B per $1 of Stock A
-- **Example:** Beta = 1.2 → Short $1,200 of B for every $1,000 long in A
-- **Purpose:** Market-neutral positioning (net beta ≈ 0)
+- **Meaning:** Shares of Stock B per 1 share of Stock A from price-level OLS (`Spread = Price_A - Beta × Price_B`)
+- **Example:** Beta = 1.2 → Short 1.2 shares of B for every 1 share long in A (notional ratio = `Beta × Price_B / Price_A`)
+- **Purpose:** Spread-neutral positioning within the target gross allocation (`n_A = Allocation / (Price_A + Beta × Price_B)`, `n_B = Beta × n_A`)
 
 ## Common Workflows
 
