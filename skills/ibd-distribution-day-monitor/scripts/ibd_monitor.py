@@ -37,6 +37,7 @@ from _market_calendar import (
     previous_full_session_index,
 )
 from data_loader import (
+    FMPPlanRestrictedError,
     build_fmp_client,
     coerce_close,
     fetch_ohlcv,
@@ -482,11 +483,21 @@ def main(argv: list[str] | None = None) -> int:
     index_results: list[IndexResult] = []
     as_of_resolved: str | None = args.as_of
     incomplete_price_evidence = False
+    symbols_unavailable: list[dict] = []
 
     for entry in indexes_cfg:
         symbol = entry["symbol"]
         benchmark = entry.get("benchmark_name") or f"{symbol} Proxy"
-        history, fetch_audit = fetch_ohlcv(client, symbol, days=lookback + 5)
+        try:
+            history, fetch_audit = fetch_ohlcv(client, symbol, days=lookback + 5)
+        except FMPPlanRestrictedError as exc:
+            symbols_unavailable.append(
+                {"symbol": symbol, "reason": "plan_gated", "detail": str(exc)}
+            )
+            if "plan_gated_symbols" not in aggregate_audit_flags:
+                aggregate_audit_flags.append("plan_gated_symbols")
+            print(f"WARNING: {symbol} cannot be evaluated: {exc}", file=sys.stderr)
+            continue
         # Effective-history quality is audited by analyze_index after as-of slicing.
         if not history:
             aggregate_audit_flags.extend(fetch_audit.get("audit_flags", []))
@@ -570,6 +581,7 @@ def main(argv: list[str] | None = None) -> int:
         "lookback_days": lookback,
         "symbols_requested": [i["symbol"] for i in indexes_cfg],
         "symbols_loaded": symbols_loaded,
+        "symbols_unavailable": symbols_unavailable,
         "instrument_identity": indexes_cfg,
         "skipped_sessions": skipped_sessions_all,
         "audit_flags": sorted(set(aggregate_audit_flags)),

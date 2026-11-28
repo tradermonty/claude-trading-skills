@@ -1309,3 +1309,35 @@ def test_budget_exceeded_propagates_through_fallback_chain():
     client = make_client(max_api_calls=0)
     with pytest.raises(ApiCallBudgetExceeded):
         client.get_historical_prices("QQQ", days=3)
+
+
+def test_plan_gated_symbol_is_reported_as_unavailable(monkeypatch, tmp_path, capsys):
+    class PlanGatedClient:
+        _last_error = None
+
+        def get_historical_prices(self, symbol, days):
+            if symbol == "QQQ":
+                self._last_error = (
+                    "HTTP 402 - Premium Query Parameter value set for 'symbol' is "
+                    "not available under your current subscription"
+                )
+                return None
+            return {"symbol": symbol, "historical": descending_history()}
+
+    client = PlanGatedClient()
+    monkeypatch.setattr(ibd_monitor, "build_fmp_client", lambda api_key: client)
+    monkeypatch.setenv("FMP_API_KEY", FAKE_KEY)
+    out = tmp_path / "out"
+    rc = ibd_monitor.main(["--symbols", "QQQ,SPY", "--output-dir", str(out)])
+    assert rc == 0
+    payload, _ = read_report(out)
+    audit = payload["audit"]
+    assert audit["symbols_loaded"] == ["SPY"]
+    detail = f"FMP plan does not serve price history for QQQ: {client._last_error}"
+    assert audit["symbols_unavailable"] == [
+        {"symbol": "QQQ", "reason": "plan_gated", "detail": detail}
+    ]
+    assert "plan_gated_symbols" in audit["audit_flags"]
+    md = sorted(out.glob("*.md"))[0].read_text(encoding="utf-8")
+    assert "QQQ (plan_gated)" in md
+    assert "WARNING: QQQ cannot be evaluated" in capsys.readouterr().err
