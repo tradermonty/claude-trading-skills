@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  issues: read
 
 jobs:
   report:
@@ -35,3 +36,7 @@ jobs:
           path: reports/skill-doc-drift.*
           if-no-files-found: error
           retention-days: 30
+      - name: Parity allowlist must reference open issues
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/check_skill_doc_parity.py --check --check-issue-refs

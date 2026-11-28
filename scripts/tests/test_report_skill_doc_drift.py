@@ -226,7 +226,7 @@ def test_annotation_escaping_and_cap():
 def test_workflow_is_read_only_full_history_and_keeps_drift_report_only():
     root = Path(__file__).resolve().parents[2]
     workflow = yaml.safe_load((root / ".github/workflows/skill-doc-drift.yml").read_text())
-    assert workflow["permissions"] == {"contents": "read"}
+    assert workflow["permissions"] == {"contents": "read", "issues": "read"}
     steps = workflow["jobs"]["report"]["steps"]
     checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
     assert checkout["with"]["fetch-depth"] == 0

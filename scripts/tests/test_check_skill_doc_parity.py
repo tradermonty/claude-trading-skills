@@ -200,3 +200,44 @@ def test_flipped_pages_have_no_violations():
         "us-undervalued-growth-screener",
     ):
         assert parity.check_skill(skill) == [], skill
+
+
+def test_closed_issue_refs_flagged(monkeypatch):
+    monkeypatch.setattr(
+        parity,
+        "_ALLOWLIST",
+        [_allow_entry("a", "2026-12-31"), _allow_entry("b", "2026-12-31")],
+    )
+    calls = []
+
+    def fetch(number):
+        calls.append(number)
+        return "closed"
+
+    problems = parity.closed_issue_ref_entries(fetch)
+    assert len(problems) == 2
+    assert "[a]" in problems[0] and "#433" in problems[0]
+    assert calls == [433]  # one lookup per distinct issue
+
+
+def test_open_issue_refs_pass(monkeypatch):
+    monkeypatch.setattr(parity, "_ALLOWLIST", [_allow_entry("a", "2026-12-31")])
+    assert parity.closed_issue_ref_entries(lambda n: "open") == []
+
+
+def test_unparseable_issue_ref_flagged(monkeypatch):
+    entry = _allow_entry("a", "2026-12-31")
+    entry.issue_ref = "see later"
+    monkeypatch.setattr(parity, "_ALLOWLIST", [entry])
+    problems = parity.closed_issue_ref_entries(lambda n: "open")
+    assert len(problems) == 1 and "invalid issue_ref" in problems[0]
+
+
+def test_lookup_failure_is_reported_not_silent(monkeypatch):
+    monkeypatch.setattr(parity, "_ALLOWLIST", [_allow_entry("a", "2026-12-31")])
+
+    def boom(number):
+        raise RuntimeError("no network")
+
+    problems = parity.closed_issue_ref_entries(boom)
+    assert len(problems) == 1 and "could not verify" in problems[0]
