@@ -34,7 +34,7 @@ def compute_mae_mfe(thesis: dict, price_adapter: Any | None = None) -> dict[str,
         {"mae_pct": float|None, "mfe_pct": float|None, "mae_mfe_source": str|None}
     """
     thesis_store._validate_equity_long_only(thesis)
-    result = {"mae_pct": None, "mfe_pct": None, "mae_mfe_source": None}
+    result: dict[str, Any] = {"mae_pct": None, "mfe_pct": None, "mae_mfe_source": None}
 
     if price_adapter is None:
         return result
@@ -256,7 +256,7 @@ def summary_stats(state_dir: str) -> dict:
     if not all_terminal:
         return {"count": 0, "win_rate": None, "avg_pnl_pct": None, "by_type": {}}
 
-    stats = {
+    stats: dict[str, Any] = {
         "count": 0,
         "wins": 0,
         "losses": 0,
@@ -449,7 +449,7 @@ def _render_monthly_report(month: str, start: str, end: str, theses: list[tuple[
     wins = sum(1 for p in pnl_values if p >= 0)
     avg_pnl = round(sum(pnl_values) / len(pnl_values), 2) if pnl_values else None
 
-    distribution: dict[str, int] = {}
+    distribution: dict[Any, int] = {}
     lessons = []
     rows = []
     for event_date, thesis in theses:

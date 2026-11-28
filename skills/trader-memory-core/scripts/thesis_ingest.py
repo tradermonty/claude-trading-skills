@@ -11,6 +11,7 @@ import csv
 import json
 import logging
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 # Allow imports from sibling modules
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # -- Adapter registry ---------------------------------------------------------
 
-_ADAPTERS: dict[str, callable] = {}
+_ADAPTERS: dict[str, Callable] = {}
 
 
 def _adapter(source_name: str):

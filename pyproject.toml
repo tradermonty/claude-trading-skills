@@ -33,6 +33,7 @@ dev = [
     "pre-commit>=3.0.0",
     "pip-audit==2.10.1",
     "bandit[toml]>=1.9.0",
+    "mypy>=1.13",
 ]
 ci = [
     "beautifulsoup4",
@@ -183,3 +184,34 @@ exclude_lines = [
     # Lint-only declaration blocks (trader-memory-core thesis_store fragments) never run.
     "if TYPE_CHECKING:",
 ]
+
+# Scoped, non-strict type check (issue #503). Run: `mypy` (paths come from `files`).
+# To expand coverage, append a path to `files`, run `mypy`, and fix or narrowly
+# ignore (with a reason) any new findings before committing.
+[tool.mypy]
+python_version = "3.11"
+files = [
+    "scripts/fmp_client",
+    "scripts/market_calendar",
+    "skills/trader-memory-core/scripts",
+    "skills/position-sizer/scripts",
+]
+# thesis_store_parts/*.py are source fragments exec'd into thesis_store's namespace
+# (not importable modules), so they cannot be type-checked in isolation.
+exclude = ["/tests/", "/test_[^/]*\\.py$", "conftest\\.py$", "/thesis_store_parts/",
+    # Generated vendored client: fix its source in scripts/fmp_client/ (checked above).
+    "^skills/trader-memory-core/scripts/fmp_client\\.py$"]
+ignore_missing_imports = true
+explicit_package_bases = true
+namespace_packages = true
+mypy_path = ["skills/trader-memory-core/scripts", "skills/position-sizer/scripts", "."]
+
+# thesis_store_parts/*.py are exec'd into thesis_store's namespace, so names they
+# define are not visible to mypy as attributes of the thesis_store module.
+[[tool.mypy.overrides]]
+module = ["thesis_store_parts.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["thesis_store", "thesis_review", "thesis_ingest"]
+disable_error_code = ["attr-defined"]

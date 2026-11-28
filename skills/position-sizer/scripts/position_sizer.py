@@ -113,6 +113,10 @@ def calculate_fixed_fractional(params: SizingParameters) -> dict:
     dollar_risk = account_size * risk_pct / 100
     shares = floor(dollar_risk / risk_per_share)
     """
+    # Narrowing for the type checker; callers validate these are present.
+    assert params.entry_price is not None
+    assert params.stop_price is not None
+    assert params.risk_pct is not None
     risk_per_share = to_decimal(params.entry_price) - to_decimal(params.stop_price)
     dollar_risk = to_decimal(params.account_size) * to_decimal(params.risk_pct) / Decimal(100)
     shares = floor_share_quantity(dollar_risk / risk_per_share, params)
@@ -127,6 +131,10 @@ def calculate_fixed_fractional(params: SizingParameters) -> dict:
 
 def calculate_atr_based(params: SizingParameters) -> dict:
     """Use ATR to derive the stop, then size against the stop rounded to cents."""
+    # Narrowing for the type checker; callers validate these are present.
+    assert params.entry_price is not None
+    assert params.atr is not None
+    assert params.risk_pct is not None
     entry_price = to_decimal(params.entry_price)
     stop_distance = to_decimal(params.atr) * to_decimal(params.atr_multiplier)
     stop_price = round(float(entry_price - stop_distance), 2)
@@ -155,6 +163,10 @@ def calculate_kelly(params: SizingParameters) -> dict:
     Half-Kelly = kelly_pct / 2 (recommended conservative amount)
     Negative expectancy floors at 0%.
     """
+    # Narrowing for the type checker; callers validate these are present.
+    assert params.win_rate is not None
+    assert params.avg_win is not None
+    assert params.avg_loss is not None
     w = params.win_rate
     r = params.avg_win / params.avg_loss
     kelly_pct = w - (1 - w) / r
@@ -266,6 +278,7 @@ def calculate_position(params: SizingParameters) -> dict:
         return result
 
     # Shares mode
+    assert params.entry_price is not None  # budget mode returned above
     result["mode"] = "shares"
     result["parameters"] = {
         "entry_price": params.entry_price,

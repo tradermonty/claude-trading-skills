@@ -20,7 +20,7 @@ import tempfile  # noqa: F401
 import uuid  # noqa: F401
 from datetime import date, datetime, timedelta, timezone  # noqa: F401
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import yaml
 from jsonschema import Draft7Validator, FormatChecker  # noqa: F401
@@ -599,7 +599,7 @@ def main(argv: list[str] | None = None) -> int:
             state_dir,
             args.thesis_id,
             args.actual_price,
-            _coerce_dt(args.actual_date),
+            cast(str, _coerce_dt(args.actual_date)),
             reason=args.reason,
             shares=args.shares,
             event_date=_coerce_dt(args.event_date),
@@ -646,7 +646,7 @@ def main(argv: list[str] | None = None) -> int:
             args.thesis_id,
             args.exit_reason,
             args.actual_price,
-            _coerce_dt(args.actual_date),
+            cast(str, _coerce_dt(args.actual_date)),
             event_date=_coerce_dt(args.event_date),
         )
         out = t.get("outcome") or {}
@@ -664,7 +664,7 @@ def main(argv: list[str] | None = None) -> int:
             args.thesis_id,
             quantity,
             args.price,
-            _coerce_dt(args.date),
+            cast(str, _coerce_dt(args.date)),
             reason=args.reason,
             exit_reason=args.exit_reason,
             event_date=_coerce_dt(args.event_date),
