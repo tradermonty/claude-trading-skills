@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FLAG_RE = re.compile(r"(?<![\w-])--[A-Za-z][A-Za-z0-9-]*")
+BASELINE_RELATIVE = Path("docs/dev/skill-doc-drift-baseline.json")
 
 
 def _git(root: Path, *args: str) -> str | None:
@@ -370,12 +371,37 @@ def github_annotations(report: dict, limit=20) -> list[str]:
     return warnings
 
 
+def read_baseline(path: Path) -> int:
+    """Return the committed drift-pages ceiling; malformed data fails closed."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"cannot read baseline {path}: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"baseline {path} is not valid JSON: {exc}") from exc
+    if not isinstance(data, dict) or data.get("schema_version") != 1:
+        raise ValueError(f"baseline {path} must be a JSON object with schema_version 1")
+    limit = data.get("drift_pages")
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+        raise ValueError(f"baseline {path} must hold a non-negative integer drift_pages")
+    return limit
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--json-output", type=Path)
     parser.add_argument("--markdown-output", type=Path)
     parser.add_argument("--github", action="store_true", help="Emit at most 20 warning annotations")
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        help=(
+            "Drift-pages ceiling file (default: "
+            f"{BASELINE_RELATIVE.as_posix()} under --root); "
+            "a missing file keeps report-only mode"
+        ),
+    )
     args = parser.parse_args(argv)
     try:
         if (
@@ -393,6 +419,8 @@ def main(argv: list[str] | None = None) -> int:
             if path:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(text, encoding="utf-8")
+        baseline_path = args.baseline or (args.root / BASELINE_RELATIVE)
+        baseline_limit = read_baseline(baseline_path) if baseline_path.is_file() else None
     except (OSError, ValueError, SyntaxError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -400,6 +428,17 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(github_annotations(report)))
     if not args.markdown_output:
         print(markdown)
+    if baseline_limit is not None:
+        current = report["summary"]["drift_pages"]
+        if current > baseline_limit:
+            print(
+                f"BASELINE: drift pages {current} exceed the committed ceiling "
+                f"{baseline_limit} ({baseline_path}); refresh the affected guide(s), or lower "
+                "the ceiling only after the pages are fixed.",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"BASELINE: OK ({current} <= {baseline_limit})")
     return 0
 
 

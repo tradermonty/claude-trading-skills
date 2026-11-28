@@ -10,9 +10,17 @@ python3 scripts/report_skill_doc_drift.py \
 
 The **Hand-maintained skill docs drift** workflow runs this command on pull
 requests and main, adds warning annotations and a job summary, and retains both
-reports as the `skill-doc-drift` artifact. Findings return exit code 0; unreadable
-inputs or failed output writes return 1. This report does not change the existing
-generated-page drift gate or EN/JA command-parity gate.
+reports as the `skill-doc-drift` artifact. A revision with more drifted pages
+than the committed ceiling in `docs/dev/skill-doc-drift-baseline.json` fails with
+exit code 1, so drift can only shrink. A malformed ceiling or a failed output
+write also returns 1; a checkout without the baseline file keeps the old
+report-only behavior. Lower `drift_pages` when pages are fixed (the committed
+value is 32 at `4623c0a`), and never raise it to admit new drift. This report
+does not change the existing generated-page drift gate or EN/JA command-parity
+gate.
+
+Pass `--baseline <path>` to compare against a different ceiling file; the
+default is `docs/dev/skill-doc-drift-baseline.json` under the assessed root.
 
 Only existing EN/JA skill pages without `generated: true` frontmatter are assessed.
 The summary counts pages with findings, individual findings, unknown-history
