@@ -83,7 +83,7 @@ Pythonスクリプトを使用してFMP APIにクエリを実行し、生のJSON
 
 ## 3. 前提条件
 
-- **FMP APIキー**（必須）: https://financialmodelingprep.com で無料キーに登録（250リクエスト/日）。`FMP_API_KEY` 環境変数で設定するか、スクリプトに `--api-key` を渡す。
+- **FMP APIキー**（必須）: https://financialmodelingprep.com に登録。経済カレンダーのエンドポイントは有料プランが必要で、無料キーでは HTTP 402 になります（[FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）。`FMP_API_KEY` 環境変数で設定するか、スクリプトに `--api-key` を渡す。
 - **Python 3.10+**: `skills/economic-calendar-fetcher/scripts/get_economic_calendar.py` の実行に必要。
 - **サードパーティパッケージ不要**: スクリプトはPython標準ライブラリのみ使用。
 

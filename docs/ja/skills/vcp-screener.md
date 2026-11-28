@@ -49,7 +49,7 @@ VCP Screenerは、Mark Minerviniが著書「Trade Like a Stock Market Wizard」�
 
 ## 2. 前提条件
 
-> FMP APIキーが必須です。無料ティア（250回/日）でデフォルトの上位100候補のスクリーニングに十分です。全S&P 500のスクリーニング（`--full-sp500`）にはPaidティアが推奨されます。
+> FMP APIキーが必須です。無料プランの 250回/日 の枠はデフォルトの上位100候補のスクリーニングを賄えますが、無料プランでは気配値リクエストが拒否されることがあります（HTTP 402/403）。その場合は VCP 候補ではなくプラン制限として報告され、有料プランが必要になることがあります（[FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）。全S&P 500のスクリーニング（`--full-sp500`）にはPaidティアが推奨されます。
 {: .api_required }
 
 | 項目 | 要否 | 説明 |

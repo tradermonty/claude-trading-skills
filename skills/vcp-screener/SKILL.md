@@ -19,7 +19,7 @@ Screen S&P 500 stocks for Mark Minervini's Volatility Contraction Pattern (VCP),
 ## Prerequisites
 
 - FMP API key (set `FMP_API_KEY` environment variable or pass `--api-key`)
-- Free tier (250 calls/day) is sufficient for default screening (top 100 candidates)
+- The 250 calls/day free-plan budget covers default screening (top 100 candidates), but the free plan can refuse quote requests (HTTP 402/403); the run then reports a plan restriction instead of VCP candidates, and a paid plan may be needed (see `docs/en/getting-started.md#fmp-plans`)
 - Paid tier recommended for full S&P 500 screening (`--full-sp500`)
 
 ## Workflow

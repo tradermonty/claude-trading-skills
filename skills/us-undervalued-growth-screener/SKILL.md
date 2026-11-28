@@ -131,7 +131,7 @@ Do not use it for:
 - `FMP_API_KEY` in the environment for Claude Code direct mode. Never commit or print the key.
 - Current SEC, company-IR, and macro sources accessible for selected-company underwriting.
 - Writable `reports/` and `.cache/` directories.
-- No specific paid FMP plan is assumed. Bulk endpoint failures fall back to bounded per-symbol enrichment and are disclosed in diagnostics.
+- Discovery needs a plan that includes the stable `company-screener` endpoint (HTTP 402/403 on the free plan, reported as a plan restriction, with no legacy v3 fallback; see `docs/en/getting-started.md#fmp-plans`). Other bulk endpoint failures fall back to bounded per-symbol enrichment and are disclosed in diagnostics.
 
 ## Default Scope
 

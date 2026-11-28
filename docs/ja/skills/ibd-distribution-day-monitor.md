@@ -56,7 +56,7 @@ IBD Distribution Day Monitor は、William O'Neil の CAN SLIM フレームワ�
 
 ## 2. 前提条件
 
-- **API キー:** [Financial Modeling Prep (FMP)](https://site.financialmodelingprep.com/developer/docs) — 無料ティア（250 calls/day）で日次の QQQ + SPY 実行に十分
+- **API キー:** [Financial Modeling Prep (FMP)](https://site.financialmodelingprep.com/developer/docs) — 日次の QQQ + SPY 実行の呼び出し数は少ないものの、無料プランでは SPY は取得できても QQQ の履歴が拒否されることがあります（HTTP 402/403）。その場合は plan-gated として報告され、有料プランが必要になることがあります（[FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）
 - **Python 3.9+:** 標準ライブラリ + `requests`（既インストール）+ `pyyaml`（`pyproject.toml` に依存追加済み）
 - **pandas 不要:** OHLCV はすべて `list[dict]` で処理（移植性と速度のため）
 

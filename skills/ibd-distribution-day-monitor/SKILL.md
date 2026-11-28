@@ -108,7 +108,7 @@ python3 skills/ibd-distribution-day-monitor/scripts/ibd_monitor.py \
 ```
 
 ## API Requirements
-FMP API key required. Free tier (250 calls/day) is sufficient for daily QQQ + SPY runs.
+FMP API key required. The call volume of a daily QQQ + SPY run is small, but on the free plan QQQ history can be refused (HTTP 402/403) while SPY works. The run then reports the symbol as plan-gated instead of a clean market read, and a paid plan may be needed (see `docs/en/getting-started.md#fmp-plans`).
 
 ## Related Skills
 - `ftd-detector`: Bottom confirmation via Follow-Through Days (counterpart of this top-side signal).
