@@ -22,12 +22,13 @@ class _Response:
 
 
 class _Session:
-    def __init__(self, status_code):
+    def __init__(self, status_code, text="Restricted Endpoint"):
         self.status_code = status_code
+        self.text = text
         self.headers = {}
 
     def get(self, url, params=None, timeout=None):
-        return _Response(self.status_code, "Restricted Endpoint")
+        return _Response(self.status_code, self.text)
 
 
 def _args():
@@ -47,15 +48,26 @@ def _args():
 
 @pytest.mark.parametrize("status", [402, 403])
 def test_screener_plan_restriction_is_reported_not_no_symbols(status, monkeypatch):
+    _check(status, "Restricted Endpoint", monkeypatch, plan=True)
+
+
+def test_invalid_key_403_is_not_called_a_plan_restriction(monkeypatch):
+    _check(403, "Invalid API KEY.", monkeypatch, plan=False)
+
+
+def _check(status, body, monkeypatch, plan):
     real_init = mod.FMPClient.__init__
 
     def init(self, *a, **k):
         real_init(self, *a, **k)
-        self._client.session = _Session(status)
+        self._client.session = _Session(status, body)
 
     monkeypatch.setattr(mod.FMPClient, "__init__", init)
     with pytest.raises(ValueError) as exc:
         mod.collect_price_data(_args(), {})
     message = str(exc.value)
-    assert "plan" in message and "getting-started.md#fmp-plans" in message
     assert "No symbols to process" not in message
+    if plan:
+        assert "plan does not include" in message and "getting-started.md#fmp-plans" in message
+    else:
+        assert "plan does not include" not in message and "API key" in message

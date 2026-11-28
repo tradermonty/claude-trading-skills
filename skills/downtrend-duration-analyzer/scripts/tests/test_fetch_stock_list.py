@@ -58,3 +58,11 @@ def test_plan_restricted_screener_is_reported_as_plan_gate(session, capsys, stat
     err = capsys.readouterr().err
     assert "plan" in err and "getting-started.md#fmp-plans" in err
     assert "unusable screener response" not in err
+
+
+def test_invalid_key_403_is_not_called_a_plan_restriction(session, capsys):
+    session.get.return_value.status_code = 403
+    session.get.return_value.text = "Invalid API KEY."
+    assert analyze_downtrends.fetch_stock_list("key") == []
+    err = capsys.readouterr().err
+    assert "plan does not include" not in err and "API key" in err

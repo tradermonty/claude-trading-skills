@@ -481,6 +481,14 @@ def _empty_universe_message(client: Any) -> str:
             and "company-screener" in str(failure.get("endpoint", ""))
             and failure.get("status_code") in (402, 403)
         ):
+            if failure.get("status_code") == 403:
+                # The recorded failure carries no body, so a 403 cannot be told
+                # apart from a bad key or WAF block.
+                return (
+                    "FMP refused the company screener request (HTTP 403); check the "
+                    "API key and that the plan includes the company screener. See "
+                    "docs/en/getting-started.md#fmp-plans."
+                )
             return (
                 "FMP plan does not include the company screener endpoint (HTTP 402/403); "
                 "this is a plan restriction, not an empty market. Switch to an FMP plan "

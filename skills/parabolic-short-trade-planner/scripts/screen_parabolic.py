@@ -620,14 +620,33 @@ def run_live(
     return out
 
 
+_PLAN_MARKERS = (
+    "subscription",
+    "legacy endpoint",
+    "restricted endpoint",
+    "premium query",
+    "not available under your current",
+)
+
+
+def _is_plan_restriction(error: str | None) -> bool:
+    """HTTP 402, or a 403 whose body carries an entitlement marker (not a bad key or WAF)."""
+    text = (error or "").lower()
+    if text.startswith("http 402"):
+        return True
+    return text.startswith("http 403") and any(m in text for m in _PLAN_MARKERS)
+
+
 def _plan_restriction_hint(client) -> str:
     """Name an FMP plan restriction (HTTP 402/403) when it was the last failure."""
     last_error = str(getattr(client, "_last_error", None) or "")
-    if last_error.startswith(("HTTP 402", "HTTP 403")):
+    if _is_plan_restriction(last_error):
         return (
             ". The last FMP request was refused with HTTP 402/403: this is a plan "
             "restriction, not an empty market result. See docs/en/getting-started.md#fmp-plans"
         )
+    if last_error.startswith("HTTP 403"):
+        return ". The last FMP request was refused with HTTP 403; check the API key and plan"
     return ""
 
 

@@ -56,15 +56,19 @@ def test_screener_uses_company_screener_and_never_calls_v3(tmp_path):
 
 
 @pytest.mark.parametrize("status", [402, 403])
-def test_refused_screener_has_no_v3_fallback_and_reports_plan_restriction(tmp_path, status):
+def test_refused_screener_has_no_v3_fallback_and_names_the_refusal(tmp_path, status):
     session = _Session(status)
     client = _client(tmp_path, session)
     assert _screen(client) == []
     assert all("/api/v3/" not in url for url in session.urls)
     assert all(url.endswith("/stable/company-screener") for url in session.urls)
     message = _empty_universe_message(client)
-    assert "plan restriction" in message
     assert "getting-started.md#fmp-plans" in message
+    if status == 402:
+        assert "plan restriction" in message
+    else:
+        # A 403 may be a bad key or WAF block, so it is not called a plan restriction.
+        assert "plan restriction" not in message and "API key" in message
 
 
 def test_empty_universe_without_a_refusal_keeps_the_generic_message(tmp_path):

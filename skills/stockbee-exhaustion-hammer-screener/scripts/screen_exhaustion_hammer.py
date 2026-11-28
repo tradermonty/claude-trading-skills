@@ -1184,6 +1184,23 @@ def build_symbol_list(args: argparse.Namespace) -> list[str]:
     return sorted(symbols)[: args.max_symbols]
 
 
+_PLAN_MARKERS = (
+    "subscription",
+    "legacy endpoint",
+    "restricted endpoint",
+    "premium query",
+    "not available under your current",
+)
+
+
+def _is_plan_restriction(error: str | None) -> bool:
+    """HTTP 402, or a 403 whose body carries an entitlement marker (not a bad key or WAF)."""
+    text = (error or "").lower()
+    if text.startswith("http 402"):
+        return True
+    return text.startswith("http 403") and any(m in text for m in _PLAN_MARKERS)
+
+
 def fetch_failure_reason(last_error: str | None) -> str:
     """evaluation_coverage reason code for an empty fetch; never a response body."""
     if not last_error:
@@ -1243,6 +1260,11 @@ def collect_price_data(
         if args.fmp_universe and (client.last_fetch_error or "").startswith(
             ("HTTP 402", "HTTP 403")
         ):
+            if not _is_plan_restriction(client.last_fetch_error):
+                raise ValueError(
+                    "FMP refused the company screener request for --fmp-universe (HTTP 403). "
+                    "Check the API key and that the plan includes the screener."
+                )
             raise ValueError(
                 "FMP plan does not include the company screener endpoint required for "
                 "--fmp-universe (HTTP 402/403). Use --symbols, --universe-file or "
