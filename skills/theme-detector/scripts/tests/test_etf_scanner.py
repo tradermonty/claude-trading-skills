@@ -121,6 +121,43 @@ class TestCalculateRSI:
         rsi = ETFScanner._calculate_rsi(prices, period=14)
         assert rsi == 100.0
 
+    def test_nan_close_returns_none(self):
+        """A NaN close makes the window unusable instead of fabricating an RSI."""
+        prices = pd.Series([float(i) for i in range(1, 20)])
+        prices.iloc[5] = float("nan")
+        assert ETFScanner._calculate_rsi(prices, period=14) is None
+
+    def test_nan_close_at_window_edges_returns_none(self):
+        """The guard covers the first and last bar, not only interior gaps."""
+        for position in (0, -1):
+            prices = pd.Series([float(i) for i in range(1, 20)])
+            prices.iloc[position] = float("nan")
+            assert ETFScanner._calculate_rsi(prices, period=14) is None
+
+    def test_all_nan_series_returns_none(self):
+        """A wholly unusable series must not fall through to a 100.0 RSI."""
+        prices = pd.Series([float("nan")] * 20)
+        assert ETFScanner._calculate_rsi(prices, period=14) is None
+
+    def test_nan_close_in_flat_series_returns_none(self):
+        """A missing bar in a flat series is unusable, not a 100.0 overbought read."""
+        prices = pd.Series([50.0] * 20)
+        prices.iloc[5] = float("nan")
+        assert ETFScanner._calculate_rsi(prices, period=14) is None
+
+    def test_infinite_close_returns_none(self):
+        """A non-finite close is unusable, matching the other RSI copies' guard."""
+        for bad in (float("inf"), float("-inf")):
+            prices = pd.Series([float(i) for i in range(1, 20)])
+            prices.iloc[5] = bad
+            assert ETFScanner._calculate_rsi(prices, period=14) is None
+
+    def test_non_numeric_close_returns_none(self):
+        """A non-numeric close cannot be read as a price, so it fails closed."""
+        prices = pd.Series([float(i) for i in range(1, 20)], dtype=object)
+        prices.iloc[5] = object()
+        assert ETFScanner._calculate_rsi(prices, period=14) is None
+
 
 # ---------------------------------------------------------------------------
 # TestCalculate52wDistances
