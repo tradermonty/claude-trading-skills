@@ -148,3 +148,12 @@ Missing or malformed primary dates stop report generation.
 Pass the exact JSON paths printed by these invocations to Exposure Coach's
 `--require-provenance --run-id … --as-of …` mode. Run IDs are caller-provided
 consistency markers, not authenticity or point-in-time proof.
+
+## Evaluation coverage
+
+JSON carries a top-level schema 1.0 `evaluation_coverage` block (#711) over
+every data row in the fetched detail CSV. A row that parses counts as evaluated;
+a row skipped for a missing, malformed or non-finite value is `invalid_data`.
+Markdown prints evaluated / total beside the composite. A `partial` verdict
+means some declared rows were not evaluated and missing rows may change the
+conclusion; component scores and weights are unchanged.
