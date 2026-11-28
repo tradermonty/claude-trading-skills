@@ -494,7 +494,16 @@ class FMPClient:
         return sum(prices[:period]) / period
 
     def calculate_ema(self, prices: list[float], period: int) -> float:
-        """Calculate Exponential Moving Average from a list of prices (most recent first)"""
+        """Calculate EMA from prices ordered most recent first.
+
+        Contract (shared by every EMA copy, see scripts/tests/test_indicator_contract.py):
+        fewer than ``period`` prices returns the simple average of the prices given;
+        empty ``prices`` or ``period < 1`` raises ValueError.
+        """
+        if not prices:
+            raise ValueError("prices must not be empty")
+        if period < 1:
+            raise ValueError("period must be >= 1")
         if len(prices) < period:
             return sum(prices) / len(prices)
 

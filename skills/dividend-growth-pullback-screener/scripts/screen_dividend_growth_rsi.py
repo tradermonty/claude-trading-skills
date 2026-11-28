@@ -284,7 +284,7 @@ class RSICalculator:
         """
         if type(period) is not int or period <= 0:
             return None
-        if any(not _finite_number(price) for price in prices):
+        if any(not _finite_number(price) or price <= 0 for price in prices):
             return None
         if len(prices) < period + 1:
             return None
@@ -305,13 +305,15 @@ class RSICalculator:
             avg_gain = (avg_gain * (period - 1) + gains[i]) / period
             avg_loss = (avg_loss * (period - 1) + losses[i]) / period
 
-        # Calculate RSI
+        # Calculate RSI. A series with no movement is undefined, not overbought.
         if avg_loss == 0:
-            return 100.0
+            return None if avg_gain == 0 else 100.0
 
         rs = avg_gain / avg_loss
         rsi = 100 - (100 / (1 + rs))
 
+        if not math.isfinite(rsi):
+            return None
         return round(rsi, 2)
 
 

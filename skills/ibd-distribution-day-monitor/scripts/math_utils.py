@@ -15,7 +15,8 @@ def calc_ema(prices: list[float], period: int) -> float:
         period: EMA period (must be >= 1).
 
     Returns:
-        EMA value as float.
+        EMA value as float. Fewer than ``period`` prices returns the simple
+        average of the prices given.
 
     Raises:
         ValueError: If prices is empty or period < 1.

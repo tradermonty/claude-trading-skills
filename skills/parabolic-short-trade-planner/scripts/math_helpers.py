@@ -34,12 +34,16 @@ def ema(values: list[float], period: int) -> float | None:
     The seed is the simple average of the first ``period`` values; subsequent
     bars update the EMA as ``ema = price * alpha + ema_prev * (1 - alpha)``.
 
-    Returns ``None`` if there are fewer than ``period`` values.
+    ``values`` are ordered oldest first. Fewer than ``period`` values returns
+    the simple average of the values given; empty ``values`` or ``period < 1``
+    raises ``ValueError`` (same contract as every other EMA copy).
     """
     if period <= 0:
         raise ValueError(f"period must be positive, got {period}")
+    if not values:
+        raise ValueError("values must not be empty")
     if len(values) < period:
-        return None
+        return sum(values) / len(values)
     alpha = 2.0 / (period + 1)
     seed = sum(values[:period]) / period
     ema_value = seed

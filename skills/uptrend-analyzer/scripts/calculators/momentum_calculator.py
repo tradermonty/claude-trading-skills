@@ -89,8 +89,11 @@ def calculate_momentum(all_timeseries: list[dict], sector_summary: list[dict]) -
 def _ema(values: list[float], span: int = 3) -> list[float]:
     """Calculate Exponential Moving Average.
 
+    Series variant: seeded with the first value (no SMA seed), so it is not
+    numerically comparable to the scalar EMA copies.
+
     Args:
-        values: List of float values
+        values: List of float values ordered oldest first
         span: EMA span (default 3)
 
     Returns:
