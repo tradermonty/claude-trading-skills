@@ -55,7 +55,7 @@ permalink: /ja/skills/institutional-flow-tracker/
 
 ## 3. 前提条件
 
-- **FMP APIキー:** 環境変数 `FMP_API_KEY` を設定するか、スクリプトに `--api-key` を渡す
+- **FMP APIキー:** 環境変数 `FMP_API_KEY` を設定するか、スクリプトに `--api-key` を渡す。13F 機関投資家保有データは無料の FMP プランでは提供されないため、有料プランが必要です（[FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）
 - **Python 3.8+:** 分析スクリプトの実行に必要
 - **依存関係:** `pip install requests`（スクリプトは依存関係不足を適切に処理）
 

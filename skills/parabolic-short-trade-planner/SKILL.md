@@ -49,7 +49,7 @@ Do NOT invoke for:
 
 ## Prerequisites
 
-- **FMP API key:** Required. Set `FMP_API_KEY` or pass `--api-key` for the Phase 1 screener.
+- **FMP API key:** Required. Set `FMP_API_KEY` or pass `--api-key` for the Phase 1 screener. Some symbol quote and history requests are refused on the free FMP plan (HTTP 402/403); the run then stops with a plan-restriction error and a paid plan may be needed (see `docs/en/getting-started.md#fmp-plans`).
 - **Alpaca API keys:** Optional. Set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` for live borrow checks in Phase 2 and for live 5-minute bars in Phase 3. Without them Phase 2 falls back to `ManualBrokerAdapter` and marks candidates `watch_only`. Offline runs: Phase 1 `screen_parabolic.py --dry-run --fixture <path>`, Phase 2 `generate_pre_market_plan.py --broker none`, Phase 3 `monitor_intraday_trigger.py --bars-source fixture --bars-fixture <path>`.
 - **Python:** 3.9+ with `pandas-market-calendars==5.2.2` and `requests>=2.31.0` (see `requirements.txt`).
 

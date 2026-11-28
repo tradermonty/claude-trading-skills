@@ -1106,6 +1106,13 @@ def main():
             print("  No VCP candidates found in this screening run.")
         else:
             print("  Result undetermined: incomplete evaluation coverage.")
+            gated = coverage["not_evaluated_reasons"].get("plan_gated", 0)
+            if gated:
+                print(
+                    f"  {gated} symbol(s) were refused by FMP as plan-gated (HTTP 402/403): "
+                    "this is a plan restriction, not a market result. "
+                    "See docs/en/getting-started.md#fmp-plans."
+                )
 
     print()
     print(f"  JSON Report:    {json_file}")
