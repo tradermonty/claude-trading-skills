@@ -3,8 +3,9 @@
 Schema version **1.0**, alongside [data provenance](data-provenance-contract.md).
 Source: issue #711. Shared implementation: `scripts/evaluation_coverage.py`;
 identical standalone copies ship in VCP Screener, Exposure Coach,
-Downtrend Duration Analyzer, Stockbee Momentum Burst Screener and Stockbee
-Exhaustion Hammer Screener.
+Downtrend Duration Analyzer, Stockbee Momentum Burst Screener,
+Stockbee Exhaustion Hammer Screener, Market Breadth Analyzer and
+Uptrend Analyzer.
 
 ```json
 {
@@ -99,6 +100,32 @@ freshness gate, so there is no stale or no-completed-bar reason. A budget stop
 during the optional near-close quote fetch makes that symbol and the rest
 `not_requested`. A failed quote alone keeps the history bars, as before.
 
+## Fifth and sixth producers: native market breadth and uptrend analysis
+
+These reports combine several inputs rather than screen a cross-section, so the
+universe is the declared input set each report names.
+
+Market Breadth Analyzer declares every data row in the fetched detail CSV
+(`market_breadth_data.csv`). A row that parses is evaluated; a row skipped for a
+missing, malformed or non-finite value is `invalid_data`. `universe_size` counts
+the data rows in the CSV body. A transport error, an unparsable body or a
+missing required header still exits 1 without a report, because no declared
+universe was observed.
+
+Uptrend Analyzer declares the twelve worksheets of the primary timeseries:
+`all` plus the eleven sector worksheets. A worksheet is evaluated when its
+latest ratio is finite, or when the sector-summary CSV supplies a finite ratio
+for it (the same fallback its calculators use). A worksheet row that exists
+without a usable ratio is `invalid_data`; an absent worksheet is `missing_data`.
+
+Both reports keep the existing calculator scores and weight handling unchanged.
+A `partial` verdict means the composite includes documented neutral defaults for
+some inputs: market breadth keeps the six-component weight redistribution it
+already had, and uptrend still scores a missing component at its full weight.
+Markdown prints evaluated / total beside the composite and names the reasons; a
+missing member may change the conclusion. Consumers that read the block treat
+`partial` and `not_evaluable` as incomplete input.
+
 ## Consumers and replay
 
 Exposure Coach excludes declared `partial`, `not_evaluable` or malformed coverage
@@ -113,5 +140,5 @@ canonical JSON/YAML at producer, consumer and publication boundaries. Malformed
 accounting fails before replacing published output; valid unavailable coverage
 reaches the native consumer and is excluded there. Market-regime replay accepts
 the optional field for progressive adoption. Regression fixtures exercise that
-handoff; native breadth/uptrend coverage production and the remaining screeners
-are follow-up slices of #711, not claimed implemented here.
+handoff; the remaining screeners are follow-up slices of #711, not claimed
+implemented here.

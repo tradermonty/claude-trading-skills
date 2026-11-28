@@ -22,9 +22,11 @@ Output:
 """
 
 import argparse
+import math
 import os
 import sys
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import uuid4
 
 # Add parent directory to path for imports
@@ -41,6 +43,7 @@ from data_fetcher import (
     WORKSHEET_TO_DISPLAY,
     UptrendDataFetcher,
 )
+from evaluation_coverage import build_evaluation_coverage
 from provenance_contract import build_provenance
 from report_generator import generate_json_report, generate_markdown_report
 from scorer import calculate_composite_score
@@ -55,6 +58,57 @@ def parse_arguments():
     )
     parser.add_argument("--run-id", default=None, help="Shared workflow run identifier")
     return parser.parse_args()
+
+
+def _usable_ratio(value) -> bool:
+    """True when a worksheet ratio is a finite number (None and NaN are unusable)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def build_worksheet_coverage(
+    latest_all: Optional[dict],
+    sector_latest: dict[str, dict],
+    sector_summary: list[dict],
+) -> dict:
+    """Count the declared dashboard worksheets that reached a usable latest ratio.
+
+    The declared universe is the primary timeseries' twelve worksheets: ``all``
+    plus the eleven sector worksheets in ``WORKSHEET_TO_DISPLAY``. Sector
+    evaluation follows the calculators' actual source: when the sector summary
+    CSV is non-empty it is used alone (``sector_rotation_calculator`` and
+    ``sector_participation_calculator`` rebuild a summary from the timeseries
+    only when the whole summary is missing), so a sector worksheet is
+    evaluated only if its own summary row carries a usable ratio. With no
+    summary at all, each worksheet falls back to its latest timeseries ratio.
+    A worksheet with no row is ``missing_data``; a row that exists but has no
+    usable ratio is ``invalid_data`` (#711).
+    """
+    summary_ratios = {
+        row.get("Sector"): row.get("Ratio") for row in sector_summary if row.get("Sector")
+    }
+    outcomes: dict[str, Optional[str]] = {}
+
+    if latest_all and _usable_ratio(latest_all.get("ratio")):
+        outcomes["all"] = None
+    else:
+        outcomes["all"] = "invalid_data" if latest_all else "missing_data"
+
+    for worksheet, display_name in WORKSHEET_TO_DISPLAY.items():
+        if sector_summary:
+            if display_name not in summary_ratios:
+                outcomes[worksheet] = "missing_data"
+            elif _usable_ratio(summary_ratios.get(display_name)):
+                outcomes[worksheet] = None
+            else:
+                outcomes[worksheet] = "invalid_data"
+        else:
+            latest = sector_latest.get(worksheet)
+            if latest and _usable_ratio(latest.get("ratio")):
+                outcomes[worksheet] = None
+            else:
+                outcomes[worksheet] = "invalid_data" if latest else "missing_data"
+
+    return build_evaluation_coverage(outcomes)
 
 
 def main():
@@ -94,6 +148,7 @@ def main():
     all_timeseries = fetcher.get_all_timeseries()
     latest_all = fetcher.get_latest_all()
     sector_latest = fetcher.get_all_sector_latest()
+    coverage = build_worksheet_coverage(latest_all, sector_latest, sector_summary)
 
     provenance = build_provenance(
         provider="trader-monty",
@@ -211,6 +266,10 @@ def main():
         f"  Weakest: {composite['weakest_component']['label']} "
         f"({composite['weakest_component']['score']})"
     )
+    print(
+        f"  Evaluation coverage: {coverage['evaluated']}/{coverage['universe_size']} "
+        f"worksheets evaluated ({coverage['verdict']})"
+    )
     print()
 
     # ========================================================================
@@ -224,6 +283,7 @@ def main():
     # Build full analysis
     analysis = {
         "data_provenance": provenance,
+        "evaluation_coverage": coverage,
         "metadata": {
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "data_source": "Monty's Uptrend Ratio Dashboard (GitHub CSV)",

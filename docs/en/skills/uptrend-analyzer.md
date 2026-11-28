@@ -88,6 +88,14 @@ Present the generated Markdown report to the user, highlighting:
 - Sector heatmap showing strongest and weakest sectors
 - Key momentum and rotation signals
 
+### Phase 3: Read evaluation coverage
+
+JSON carries a top-level schema 1.0 `evaluation_coverage` block (#711) over the
+twelve declared worksheets: `all` plus the eleven sector worksheets. Markdown
+prints evaluated / total beside the composite. A `partial` or `not_evaluable`
+verdict means some worksheets were absent or unusable; the components they feed
+used documented neutral defaults, so the composite is not a complete evaluation.
+
 ---
 
 ---

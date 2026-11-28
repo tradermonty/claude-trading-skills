@@ -71,7 +71,25 @@ def generate_markdown_report(analysis: dict, output_file: str):
     dq = composite.get("data_quality", {})
     if dq:
         lines.append(f"| **Data Quality** | {dq.get('label', 'N/A')} |")
+    coverage = analysis.get("evaluation_coverage")
+    if coverage is not None:
+        lines.append(
+            f"| **Evaluation Coverage** | {coverage['evaluated']}/"
+            f"{coverage['universe_size']} CSV rows ({coverage['verdict']}) |"
+        )
     lines.append("")
+
+    if coverage is not None and coverage["verdict"] != "complete":
+        reasons = ", ".join(
+            f"{reason}: {count}" for reason, count in coverage["not_evaluated_reasons"].items()
+        )
+        lines.append(
+            f"> **Coverage:** {coverage['not_evaluated']} declared CSV "
+            f"{'row was' if coverage['not_evaluated'] == 1 else 'rows were'} not "
+            f"evaluated ({reasons}). The composite uses only evaluated rows; "
+            "missing rows may change the conclusion."
+        )
+        lines.append("")
 
     # Guidance
     lines.append(f"> **Guidance:** {composite.get('guidance', '')}")

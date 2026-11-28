@@ -45,6 +45,7 @@ from csv_client import (
     fetch_detail_csv,
     fetch_summary_csv,
 )
+from evaluation_coverage import build_evaluation_coverage
 from history_tracker import append_history, get_trend_summary
 from provenance_contract import build_provenance, safe_source_url
 from report_generator import generate_json_report, generate_markdown_report
@@ -91,10 +92,13 @@ def main():
     print("Step 1: Fetching CSV Data")
     print("-" * 70)
 
-    detail_rows = fetch_detail_csv(args.detail_url)
+    detail_outcomes = {}
+    detail_rows = fetch_detail_csv(args.detail_url, detail_outcomes)
     if not detail_rows:
         print("ERROR: Cannot proceed without detail CSV data", file=sys.stderr)
         sys.exit(1)
+
+    coverage = build_evaluation_coverage(detail_outcomes)
 
     summary = fetch_summary_csv(args.summary_url)
 
@@ -211,6 +215,10 @@ def main():
         f"  Weakest: {composite['weakest_health']['label']} "
         f"({composite['weakest_health']['score']})"
     )
+    print(
+        f"  Evaluation coverage: {coverage['evaluated']}/{coverage['universe_size']} "
+        f"CSV rows evaluated ({coverage['verdict']})"
+    )
     print()
 
     # ========================================================================
@@ -267,6 +275,7 @@ def main():
         "trend_summary": trend_summary,
         "key_levels": key_levels,
     }
+    analysis["evaluation_coverage"] = coverage
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     json_file = os.path.join(args.output_dir, f"market_breadth_{timestamp}.json")

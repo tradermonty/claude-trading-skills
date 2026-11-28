@@ -124,11 +124,16 @@ class TestMainGeneratesReports:
             assert "composite" in data
             assert "components" in data
             assert "metadata" in data
+            coverage = data["evaluation_coverage"]
+            assert coverage["universe_size"] == 12
+            assert coverage["evaluated"] == 12
+            assert coverage["verdict"] == "complete"
 
             # Verify MD is non-empty
             with open(os.path.join(tmpdir, md_files[0])) as f:
                 content = f.read()
             assert "Uptrend Analyzer Report" in content
+            assert "**Evaluation Coverage** | 12/12 worksheets (complete)" in content
 
 
 class TestMainCompositeScoreInRange:
@@ -172,3 +177,14 @@ class TestMainWithNoSectorSummary:
 
             score = data["composite"]["composite_score"]
             assert 0 <= score <= 100
+            coverage = data["evaluation_coverage"]
+            assert coverage["universe_size"] == 12
+            assert coverage["evaluated"] == 1
+            assert coverage["not_evaluated"] == 11
+            assert coverage["not_evaluated_reasons"] == {"missing_data": 11}
+            assert coverage["verdict"] == "partial"
+            markdown = next(name for name in os.listdir(tmpdir) if name.endswith(".md"))
+            with open(os.path.join(tmpdir, markdown)) as f:
+                content = f.read()
+            assert "1/12 worksheets (partial)" in content
+            assert "missing worksheets may change the conclusion" in content
