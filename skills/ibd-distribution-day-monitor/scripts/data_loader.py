@@ -9,6 +9,30 @@ from __future__ import annotations
 import math
 from typing import Any
 
+# Phrases FMP uses when a key's plan does not serve an endpoint. An invalid key
+# or a WAF block is a 401/403 too, so only these observed plan-gating phrasings
+# turn a failed fetch into a plan-restriction report.
+_PLAN_RESTRICTION_MARKERS = (
+    "http 402",
+    "subscription",
+    "legacy endpoint",
+    "restricted endpoint",
+    "premium query",
+    "not available under your current",
+)
+
+
+class FMPPlanRestrictedError(RuntimeError):
+    """The FMP plan does not serve the price-history data this symbol needs."""
+
+
+def _is_plan_restriction(error: Any) -> bool:
+    """Return True when the client's last error looks like FMP plan gating."""
+    if not isinstance(error, str):
+        return False
+    text = error.lower()
+    return any(marker in text for marker in _PLAN_RESTRICTION_MARKERS)
+
 
 def coerce_close(value: Any) -> float | None:
     """Return a finite positive close, excluding booleans and unsupported types."""
@@ -88,6 +112,12 @@ def fetch_ohlcv(
     }
 
     payload = client.get_historical_prices(symbol, days=days)
+    if not payload:
+        last_error = getattr(client, "_last_error", None)
+        if _is_plan_restriction(last_error):
+            raise FMPPlanRestrictedError(
+                f"FMP plan does not serve price history for {symbol}: {last_error}"
+            )
     raw_history = _history_rows(payload)
     history = normalize_history(raw_history)
 

@@ -145,6 +145,12 @@ def render_markdown(payload: dict) -> str:
     lines.append("")
     lines.append(f"- **Data Source:** {audit.get('data_source', 'N/A')}")
     lines.append(f"- **Symbols:** {', '.join(audit.get('symbols_loaded', []) or [])}")
+    unavailable = audit.get("symbols_unavailable") or []
+    if unavailable:
+        reasons = "; ".join(
+            f"{item.get('symbol')} ({item.get('reason', 'unavailable')})" for item in unavailable
+        )
+        lines.append(f"- **Unavailable Symbols:** {reasons} (the results below exclude them)")
     for item in audit.get("instrument_identity", []):
         lines.append(
             f"- **Instrument {item['symbol']}:** {item.get('instrument_name', item['symbol'])}"
