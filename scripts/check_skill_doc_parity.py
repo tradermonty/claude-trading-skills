@@ -214,6 +214,58 @@ def expired_allowlist_entries(today: date | None = None) -> list[str]:
     return expired
 
 
+def _fetch_issue_state(number: int) -> str:
+    """Return 'open' or 'closed' for an issue via the GitHub REST API.
+
+    Uses GITHUB_TOKEN / GH_TOKEN and GITHUB_REPOSITORY when set (CI). Only called
+    behind --check-issue-refs; the default run never touches the network.
+    """
+    import json
+    import os
+    import urllib.request
+
+    repo = os.environ.get("GITHUB_REPOSITORY", "tradermonty/claude-trading-skills")
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}/issues/{number}",
+        headers={"Accept": "application/vnd.github+json"},
+    )
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(req, timeout=20) as resp:  # noqa: S310 - fixed https URL
+        return str(json.load(resp)["state"]).lower()
+
+
+def closed_issue_ref_entries(fetch_state=_fetch_issue_state) -> list[str]:
+    """Report allowlist entries whose issue_ref is not an OPEN issue.
+
+    ``fetch_state(number)`` returns "open"/"closed"; injectable for tests. A lookup
+    failure is reported (fail-closed) rather than silently passing.
+    """
+    problems: list[str] = []
+    states: dict[int, str] = {}
+    for entry in _ALLOWLIST:
+        m = re.fullmatch(r"#(\d+)", entry.issue_ref.strip())
+        if not m:
+            problems.append(f"  [{entry.skill}] invalid issue_ref: {entry.issue_ref!r}")
+            continue
+        number = int(m.group(1))
+        if number not in states:
+            try:
+                states[number] = fetch_state(number)
+            except Exception as exc:  # noqa: BLE001 - surfaced, not swallowed
+                states[number] = f"error: {exc}"
+        state = states[number]
+        if state.startswith("error"):
+            problems.append(f"  [{entry.skill}] could not verify {entry.issue_ref}: {state}")
+        elif state != "open":
+            problems.append(
+                f"  [{entry.skill}] allowlist references {entry.issue_ref} which is {state}; "
+                "re-point to an open issue or sync the page"
+            )
+    return problems
+
+
 def _strip_inline_comment(line: str) -> str:
     """Remove a trailing ``#`` comment, respecting single/double quotes."""
     out: list[str] = []
@@ -344,6 +396,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="Exit 1 on non-allowlisted divergence")
     parser.add_argument("--verbose", action="store_true", help="List uncompared fences")
     parser.add_argument("--skill", default=None, help="Check a single skill only")
+    parser.add_argument(
+        "--check-issue-refs",
+        action="store_true",
+        help="CI-only: fail if an allowlist entry references a closed issue (needs network)",
+    )
     args = parser.parse_args(argv)
 
     if args.skill:
@@ -367,7 +424,10 @@ def main(argv: list[str] | None = None) -> int:
     expired = expired_allowlist_entries()
     for line in expired:
         print(f"EXPIRED: {line}")
-    if args.check and (effective or expired):
+    stale_refs = closed_issue_ref_entries() if args.check_issue_refs else []
+    for line in stale_refs:
+        print(f"STALE-REF: {line}")
+    if args.check and (effective or expired or stale_refs):
         return 1
     return 0
 
