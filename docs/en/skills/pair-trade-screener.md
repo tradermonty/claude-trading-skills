@@ -188,10 +188,10 @@ For each candidate pair (Stock A, Stock B):
 Beta = Covariance(A, B) / Variance(B)
 ```
 
-Beta indicates the hedge ratio:
-- Beta = 1.0: Equal dollar amounts
-- Beta = 1.5: $1.50 of B for every $1.00 of A
-- Beta = 0.8: $0.80 of B for every $1.00 of A
+Beta indicates the share hedge ratio from price-level OLS (`Price_A = alpha + Beta × Price_B`):
+- Beta = 1.0: 1 share of B for every 1 share of A
+- Beta = 1.5: 1.5 shares of B for every 1 share of A (dollar ratio = `Beta × Price_B / Price_A`)
+- Beta = 0.8: 0.8 shares of B for every 1 share of A (dollar ratio = `Beta × Price_B / Price_A`)
 
 **Correlation Stability Check:**
 - Calculate correlation over multiple periods (6mo, 1yr, 2yr)
@@ -348,16 +348,18 @@ Prevents holding broken pairs indefinitely
 
 For a pair (Stock A, Stock B) with beta = β:
 
-**Equal Dollar Exposure:**
+**Share-Hedged Allocation:**
 ```
-If portfolio size = $10,000 allocated to this pair:
-- Long $5,000 of Stock A
-- Short $5,000 × β of Stock B
+If gross allocation = $10,000 for this pair (Spread = Price_A - β × Price_B):
+- Shares of A: n_A = $10,000 / (Price_A + β × Price_B)
+- Shares of B: n_B = β × n_A
+- Long/Short notional A: n_A × Price_A
+- Opposite notional B: n_B × Price_B  (= notional_A × β × Price_B / Price_A)
 
-Example (β = 1.2):
-- Long $5,000 Stock A
-- Short $6,000 Stock B
-→ Market neutral, beta = 0
+Example (Price_A = $120, Price_B = $100, β = 1.2):
+- Long $5,000 Stock A (41.67 shares)
+- Short $5,000 Stock B (50.00 shares = 1.2 × 41.67)
+→ Spread-neutral, gross notional = $10,000
 ```
 
 **Position Sizing Considerations:**

@@ -162,6 +162,46 @@ def calculate_zscore_series(spread, window=90):
     return zscore
 
 
+def calculate_position_sizing(price_a, price_b, beta, portfolio_allocation=10000.0):
+    """Size pair legs in share space for spread = Price_A - beta * Price_B.
+
+    Price-level OLS beta has units of shares of B per 1 share of A. To hold
+    ``n_B = beta * n_A`` shares within ``portfolio_allocation`` gross notional
+    (``n_A * price_a + n_B * price_b == portfolio_allocation``), compute:
+
+        shares_a = portfolio_allocation / (price_a + beta * price_b)
+        shares_b = shares_a * beta
+
+    Returns None when beta or any price/allocation input is non-finite or <= 0.
+    """
+    try:
+        pa = float(price_a)
+        pb = float(price_b)
+        b = float(beta)
+        alloc = float(portfolio_allocation)
+    except (TypeError, ValueError):
+        return None
+
+    if not all(math.isfinite(v) and v > 0 for v in (pa, pb, b, alloc)):
+        return None
+
+    unit_notional = pa + b * pb
+    if not math.isfinite(unit_notional) or unit_notional <= 0:
+        return None
+
+    shares_a = alloc / unit_notional
+    shares_b = shares_a * b
+    notional_a = shares_a * pa
+    notional_b = shares_b * pb
+    return {
+        "shares_a": shares_a,
+        "shares_b": shares_b,
+        "notional_a": notional_a,
+        "notional_b": notional_b,
+        "gross_notional": notional_a + notional_b,
+    }
+
+
 # =============================================================================
 # Analysis & Reporting
 # =============================================================================
@@ -331,28 +371,38 @@ def print_analysis_report(
     # Position Sizing (if signal exists)
     if coint_result["is_cointegrated"] and abs(current_zscore) >= entry_zscore:
         print("\n[ POSITION SIZING ]")
-        portfolio_allocation = 10000  # Example $10k allocation
+        portfolio_allocation = 10000  # Example $10k gross allocation
         print(f"  Example Allocation: ${portfolio_allocation:,}")
 
-        if current_zscore > entry_zscore:
-            # Short A, Long B
-            short_a = portfolio_allocation / 2
-            long_b = short_a * beta_result["beta"]
+        price_a = float(prices_a.iloc[-1])
+        price_b = float(prices_b.iloc[-1])
+        sizing = calculate_position_sizing(
+            price_a, price_b, beta_result["beta"], portfolio_allocation
+        )
+        if sizing is None:
             print(
-                f"  SHORT {symbol_a}: ${short_a:,.0f} ({short_a / prices_a.iloc[-1]:.0f} shares @ ${prices_a.iloc[-1]:.2f})"
+                f"  Unavailable: non-positive hedge ratio (beta={beta_result['beta']:.4f}) "
+                "or invalid latest prices; cannot construct a long/short hedge."
+            )
+        elif current_zscore > entry_zscore:
+            # Short A, Long B
+            print(
+                f"  SHORT {symbol_a}: ${sizing['notional_a']:,.0f} "
+                f"({sizing['shares_a']:.0f} shares @ ${price_a:.2f})"
             )
             print(
-                f"  LONG {symbol_b}: ${long_b:,.0f} ({long_b / prices_b.iloc[-1]:.0f} shares @ ${prices_b.iloc[-1]:.2f})"
+                f"  LONG {symbol_b}: ${sizing['notional_b']:,.0f} "
+                f"({sizing['shares_b']:.0f} shares @ ${price_b:.2f})"
             )
         else:
             # Long A, Short B
-            long_a = portfolio_allocation / 2
-            short_b = long_a * beta_result["beta"]
             print(
-                f"  LONG {symbol_a}: ${long_a:,.0f} ({long_a / prices_a.iloc[-1]:.0f} shares @ ${prices_a.iloc[-1]:.2f})"
+                f"  LONG {symbol_a}: ${sizing['notional_a']:,.0f} "
+                f"({sizing['shares_a']:.0f} shares @ ${price_a:.2f})"
             )
             print(
-                f"  SHORT {symbol_b}: ${short_b:,.0f} ({short_b / prices_b.iloc[-1]:.0f} shares @ ${prices_b.iloc[-1]:.2f})"
+                f"  SHORT {symbol_b}: ${sizing['notional_b']:,.0f} "
+                f"({sizing['shares_b']:.0f} shares @ ${price_b:.2f})"
             )
 
         print("\n  Exit Conditions:")
