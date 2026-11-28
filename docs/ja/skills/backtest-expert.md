@@ -234,7 +234,7 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
   --output-dir reports/
 ```
 
-**期待される結果:** Refine。勝率は低いものの期待値が十分かを判定し、スリッページ未テストを弱点として指摘。パラメータ数は中程度。
+**期待される結果:** `Decision: VALIDATION_REQUIRED (legacy verdict: Refine)`。勝率は低いものの期待値は十分で、採用前の検証課題として `no_slippage_test`（スリッページ未テスト）を指摘します。パラメータ数は中程度です。
 
 **結果が良すぎるバックテスト（カーブフィッティングの疑い）:**
 ```bash
@@ -249,7 +249,7 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
   --output-dir reports/
 ```
 
-**期待されるレッドフラグ:** 25トレード（30未満）、9パラメータ（過剰最適化）、2年（短すぎる）、スリッページ未テスト、勝率88% + DD8%。採用可否はAbandon、または強いRefineが妥当です。
+**期待される結果:** `Decision: NOT_EVALUABLE (legacy verdict: Refine)`。ブロッキング理由は `small_sample, no_slippage_test, short_test_period` です。レッドフラグは25トレード（30未満）、スリッページ未テスト、9パラメータ（過剰最適化）、2年（短すぎる）の4つです。サンプル不足のため、この結果だけでは採用可否を判断できません。
 
 ---
 
