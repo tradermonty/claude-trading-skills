@@ -69,10 +69,35 @@ def test_fetch_detail_csv_skips_bad_rows_and_reports_line(monkeypatch, capsys):
     )
     monkeypatch.setattr(csv_client.requests, "get", Mock(return_value=response))
 
-    rows = csv_client.fetch_detail_csv("https://example.test/detail.csv")
+    outcomes = {}
+    rows = csv_client.fetch_detail_csv("https://example.test/detail.csv", outcomes)
 
     assert [row["Date"] for row in rows] == ["2025-01-02"]
     assert "WARN: Skipping line 2" in capsys.readouterr().err
+    # Every declared data row is accounted for exactly once (#711).
+    assert outcomes == {2: "invalid_data", 3: None}
+
+
+def test_fetch_detail_csv_stays_backward_compatible_without_outcomes(monkeypatch):
+    response = _response(
+        "\n".join([DETAIL_HEADER, _detail_row("2025-01-01"), _detail_row("2025-01-02")])
+    )
+    monkeypatch.setattr(csv_client.requests, "get", Mock(return_value=response))
+
+    rows = csv_client.fetch_detail_csv("https://example.test/detail.csv")
+
+    assert [row["Date"] for row in rows] == ["2025-01-01", "2025-01-02"]
+
+
+def test_fetch_detail_csv_records_outcomes_for_clean_body(monkeypatch):
+    response = _response("\n".join([DETAIL_HEADER, _detail_row("2025-01-01")]))
+    monkeypatch.setattr(csv_client.requests, "get", Mock(return_value=response))
+
+    outcomes = {}
+    rows = csv_client.fetch_detail_csv("https://example.test/detail.csv", outcomes)
+
+    assert len(rows) == 1
+    assert outcomes == {2: None}
 
 
 @pytest.mark.parametrize(

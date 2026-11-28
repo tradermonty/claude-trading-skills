@@ -9,6 +9,17 @@ import market_breadth_analyzer as analyzer
 import pytest
 
 
+def _mock_detail_fetch(rows):
+    """Return a fetch_detail_csv stand-in that fills the coverage outcomes (#711)."""
+
+    def _fetch(url, outcomes=None):
+        if outcomes is not None:
+            outcomes.update({line: None for line in range(2, 2 + len(rows))})
+        return rows
+
+    return _fetch
+
+
 def run_main(output, rows, run_id=None, detail_url=None, default_output=False):
     argv = ["market_breadth_analyzer.py"]
     if not default_output:
@@ -18,7 +29,7 @@ def run_main(output, rows, run_id=None, detail_url=None, default_output=False):
     if run_id is not None:
         argv += ["--run-id", run_id]
     with (
-        mock.patch.object(analyzer, "fetch_detail_csv", return_value=rows),
+        mock.patch.object(analyzer, "fetch_detail_csv", side_effect=_mock_detail_fetch(rows)),
         mock.patch.object(analyzer, "fetch_summary_csv", return_value={}),
         mock.patch("sys.argv", argv),
         mock.patch.object(
@@ -32,6 +43,56 @@ def run_main(output, rows, run_id=None, detail_url=None, default_output=False):
     assert head.call_args.kwargs == {"timeout": 10, "allow_redirects": True}
     report = next(p for p in output.glob("market_breadth_*.json") if "history" not in p.name)
     return json.loads(report.read_text())["data_provenance"]
+
+
+def _read_report(output):
+    report = next(p for p in output.glob("market_breadth_*.json") if "history" not in p.name)
+    return json.loads(report.read_text())
+
+
+def test_report_carries_complete_row_coverage(tmp_path, make_rows):
+    run_main(tmp_path, make_rows(25))
+    report = _read_report(tmp_path)
+
+    coverage = report["evaluation_coverage"]
+    assert coverage["schema_version"] == "1.0"
+    assert coverage["universe_size"] == 25
+    assert coverage["evaluated"] == 25
+    assert coverage["not_evaluated"] == 0
+    assert coverage["not_evaluated_reasons"] == {}
+    assert coverage["verdict"] == "complete"
+    markdown = next(tmp_path.glob("market_breadth_*.md")).read_text()
+    assert "**Evaluation Coverage** | 25/25 CSV rows (complete)" in markdown
+
+
+def test_report_discloses_skipped_rows_as_partial(tmp_path, make_rows):
+    fetched = make_rows(25)[:23]
+
+    def _fetch(url, detail_outcomes=None):
+        if detail_outcomes is not None:
+            detail_outcomes.update({line: None for line in range(2, 25)})
+            detail_outcomes[25] = "invalid_data"
+        return fetched
+
+    argv = ["market_breadth_analyzer.py", "--output-dir", str(tmp_path)]
+    with (
+        mock.patch.object(analyzer, "fetch_detail_csv", side_effect=_fetch),
+        mock.patch.object(analyzer, "fetch_summary_csv", return_value={}),
+        mock.patch("sys.argv", argv),
+        mock.patch.object(csv_client.requests, "head", return_value=mock.Mock(headers={})),
+    ):
+        analyzer.main()
+
+    report = next(p for p in tmp_path.glob("market_breadth_*.json") if "history" not in p.name)
+    coverage = json.loads(report.read_text())["evaluation_coverage"]
+    assert coverage["universe_size"] == 24
+    assert coverage["evaluated"] == 23
+    assert coverage["not_evaluated"] == 1
+    assert coverage["not_evaluated_reasons"] == {"invalid_data": 1}
+    assert coverage["verdict"] == "partial"
+    markdown = next(tmp_path.glob("market_breadth_*.md")).read_text()
+    assert "23/24 CSV rows (partial)" in markdown
+    assert "missing rows may change the conclusion" in markdown
 
 
 def test_default_output_writes_reports_and_history(tmp_path, monkeypatch, make_rows):
