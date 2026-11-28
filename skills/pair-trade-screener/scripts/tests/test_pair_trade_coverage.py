@@ -1243,11 +1243,11 @@ def test_report_divergent_share_prices_stays_within_allocation(capsys):
     )
     assert expected is not None
     assert (
-        f"SHORT JPM: ${expected['notional_a']:,.0f} ({expected['shares_a']:.0f} shares @ $242.50)"
+        f"SHORT JPM: ${expected['notional_a']:,.0f} ({expected['shares_a']:.2f} shares @ $242.50)"
         in out
     )
     assert (
-        f"LONG BAC: ${expected['notional_b']:,.0f} ({expected['shares_b']:.0f} shares @ $48.00)"
+        f"LONG BAC: ${expected['notional_b']:,.0f} ({expected['shares_b']:.2f} shares @ $48.00)"
         in out
     )
     assert "$24,891" not in out
