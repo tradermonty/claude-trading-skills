@@ -185,8 +185,9 @@ PAIR TRADE ANALYSIS: AAPL / MSFT
 
 [ POSITION SIZING ]
   Example Allocation: $10,000
-  LONG AAPL: $2,813 (15 shares @ $185.50)
-  SHORT MSFT: $7,187 (17 shares @ $411.25)
+  LONG AAPL: $2,813 (15.17 shares @ $185.50)
+  SHORT MSFT: $7,187 (17.48 shares @ $411.25)
+  Share counts are fractional, shown to 2 decimals; dollar amounts use the unrounded sizes.
 
   Exit Conditions:
     - Primary: Z-score crosses 0 (mean reversion)
