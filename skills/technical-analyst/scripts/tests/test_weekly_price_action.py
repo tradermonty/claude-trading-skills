@@ -231,6 +231,57 @@ class TestResampleWeekly:
 
 
 # ---------------------------------------------------------------------------
+# Volume gaps (#655)
+# ---------------------------------------------------------------------------
+
+
+class TestVolumeGaps:
+    def test_daily_bar_without_volume_keeps_volume_missing(self):
+        rows = [{"date": "2026-03-16", "open": 1, "high": 2, "low": 0.5, "close": 1.5}]
+        series = build_sorted_daily_series(rows)
+        assert series[0]["volume"] is None
+
+    def test_invalid_daily_volume_values_stay_missing(self):
+        for value in (None, float("nan"), float("inf"), float("-inf"), "100", True, -5):
+            rows = [
+                {
+                    "date": "2026-03-16",
+                    "open": 1,
+                    "high": 2,
+                    "low": 0.5,
+                    "close": 1.5,
+                    "volume": value,
+                }
+            ]
+            series = build_sorted_daily_series(rows)
+            assert series[0]["volume"] is None
+
+    def test_zero_daily_volume_is_valid(self):
+        rows = [{"date": "2026-03-16", "open": 1, "high": 2, "low": 0.5, "close": 1.5, "volume": 0}]
+        series = build_sorted_daily_series(rows)
+        assert series[0]["volume"] == 0
+
+    def test_weekly_volume_is_missing_when_one_day_lacks_volume(self):
+        monday = monday_of(2026, 12)
+        week = daily_bars_for_week(monday)
+        week[2].pop("volume")
+        next_week = daily_bars_for_week(monday + timedelta(days=7))
+        as_of = (monday + timedelta(days=11)).isoformat()
+        weekly = resample_weekly(week + next_week, as_of)
+        assert weekly[0]["week_of"] == monday.isoformat()
+        # A partial sum would understate the week, so the whole total is missing.
+        assert weekly[0]["volume"] is None
+
+    def test_weekly_volume_sums_valid_volumes_unchanged(self):
+        monday = monday_of(2026, 12)
+        week = daily_bars_for_week(monday)
+        next_week = daily_bars_for_week(monday + timedelta(days=7))
+        as_of = (monday + timedelta(days=11)).isoformat()
+        weekly = resample_weekly(week + next_week, as_of)
+        assert weekly[0]["volume"] == sum(100 + i for i in range(5))
+
+
+# ---------------------------------------------------------------------------
 # compute_prior_window
 # ---------------------------------------------------------------------------
 
