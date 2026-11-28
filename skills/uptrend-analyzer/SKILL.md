@@ -170,8 +170,10 @@ consistency markers, not authenticity or point-in-time proof.
 
 JSON carries a top-level schema 1.0 `evaluation_coverage` block (#711) over the
 twelve declared dashboard worksheets: `all` plus the eleven sector worksheets.
-A worksheet counts as evaluated when its latest ratio is finite; the sector
-summary CSV is the same fallback the calculators use. An absent worksheet is
+`all` counts as evaluated when its latest timeseries ratio is finite. Sector
+coverage follows the calculators' actual source: when `sector_summary.csv` is
+present it decides every sector worksheet on its own, and the timeseries ratios
+are used only when the summary is unavailable. An absent worksheet is
 `missing_data`, and a row without a usable ratio is `invalid_data`. Markdown
 prints evaluated / total beside the composite. A `partial` verdict means
 components fed by missing worksheets used documented neutral defaults; scores
