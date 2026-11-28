@@ -28,6 +28,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from _price_bars import read_price
+
 SWING_LOOKBACK_WEEKS_DEFAULT = 13
 EXTREME_LOOKBACK_WEEKS_DEFAULT = 52
 SIGNAL_RECENCY_WEEKS_DEFAULT = 4
@@ -62,6 +64,12 @@ def build_sorted_daily_series(rows: list[dict]) -> list[dict]:
     field-name trap). Rows missing `date`, any of open/high/low, or both
     close/price fields are dropped; duplicate dates keep the last
     occurrence (assumed to be the more recently fetched value).
+
+    `volume` is read through the shared `_price_bars.read_price` helper:
+    zero is a valid volume, while a missing, null, non-finite or non-numeric
+    value is kept as `None` instead of becoming `0`. A bar is never dropped
+    for its volume alone, because the confirmation checks below read OHLC
+    only and a dropped session would shrink every window it belongs to.
     """
     by_date: dict[str, dict] = {}
     for row in rows:
@@ -78,7 +86,7 @@ def build_sorted_daily_series(rows: list[dict]) -> list[dict]:
             "high": h,
             "low": low,
             "close": c,
-            "volume": row.get("volume", 0) or 0,
+            "volume": read_price(row, "volume", allow_zero=True),
         }
     return [by_date[d] for d in sorted(by_date)]
 
@@ -101,6 +109,9 @@ def resample_weekly(daily_bars: list[dict], as_of: str) -> list[dict]:
 
     Returns weekly bars sorted ascending, each:
     {week_of (Monday, ISO date str), open, high, low, close, volume}.
+    `volume` totals the week's daily volumes only when every one of them is
+    a valid number; one missing or invalid daily volume makes the weekly
+    total `None` (a partial sum would understate it) instead of `0`.
     """
     as_of_date = date.fromisoformat(as_of)
     current_key = as_of_date.isocalendar()[:2]
@@ -120,6 +131,7 @@ def resample_weekly(daily_bars: list[dict], as_of: str) -> list[dict]:
         bars = sorted(groups[key], key=lambda b: b["date"])
         iso_year, iso_week = key
         week_of = date.fromisocalendar(iso_year, iso_week, 1).isoformat()
+        volumes = [read_price(bar, "volume", allow_zero=True) for bar in bars]
         weekly.append(
             {
                 "week_of": week_of,
@@ -127,7 +139,7 @@ def resample_weekly(daily_bars: list[dict], as_of: str) -> list[dict]:
                 "high": max(b["high"] for b in bars),
                 "low": min(b["low"] for b in bars),
                 "close": bars[-1]["close"],
-                "volume": sum(b.get("volume", 0) or 0 for b in bars),
+                "volume": None if any(v is None for v in volumes) else sum(volumes),
             }
         )
     return weekly
