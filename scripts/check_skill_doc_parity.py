@@ -104,15 +104,6 @@ _ALLOWLIST: list[AllowEntry] = [
         review_by="2026-12-31",
     ),
     AllowEntry(
-        skill="fxmacrodata-calendar",
-        commands=[
-            "python3 skills/fxmacrodata-calendar/scripts/fetch_calendar.py --currency usd --min-tier 1",
-        ],
-        reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#911",
-        review_by="2026-12-31",
-    ),
-    AllowEntry(
         skill="position-sizer",
         commands=[
             "python3 skills/position-sizer/scripts/position_sizer.py --account-size 100000 --entry 850 --atr 22.50 --atr-multiplier 2.0 --risk-pct 1.0 --output-dir reports/",
@@ -148,15 +139,6 @@ _ALLOWLIST: list[AllowEntry] = [
         skill="trading-skills-navigator",
         commands=[
             'python3 skills/trading-skills-navigator/scripts/recommend.py --query "<the user\'s goal, verbatim>" --format json',
-        ],
-        reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#911",
-        review_by="2026-12-31",
-    ),
-    AllowEntry(
-        skill="us-market-bubble-detector",
-        commands=[
-            'python3 skills/us-market-bubble-detector/scripts/bubble_scorer.py --scores \'{"mass_penetration":0,"media_saturation":1,"new_accounts":0,"new_issuance":1,"leverage":1,"price_acceleration":1,"valuation_disconnect":0,"breadth_expansion":1}\' --output text',
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
         issue_ref="#911",

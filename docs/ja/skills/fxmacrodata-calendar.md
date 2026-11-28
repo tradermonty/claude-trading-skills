@@ -67,6 +67,13 @@ python3 skills/fxmacrodata-calendar/scripts/fetch_calendar.py \
 ## 4. ワークフロー
 
 1. 分析対象の通貨を3文字コードで指定してスクリプトを実行します。
+
+   ```bash
+   python3 skills/fxmacrodata-calendar/scripts/fetch_calendar.py \
+     --currency usd \
+     --min-tier 1
+   ```
+
 2. 出力された `events[]` を確認し、発表日時、指標名、`market_tier`、予想値・前回値を取引計画へ反映します。
 3. 重要イベントの前後では、必要に応じて次を実施します。
    - 新規エントリーを見送る
