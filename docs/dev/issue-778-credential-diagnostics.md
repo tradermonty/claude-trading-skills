@@ -196,3 +196,24 @@ still reports `etf_scanner.py` `yf.download` and `yf.Ticker`, and
 literal would need a collector rule for the yfinance SDK. `Ticker.info` would
 need a different data source or an upstream timeout parameter. The collector
 was deliberately not extended with an unproven SDK rule.
+
+## Follow-up: #904 accepts the yfinance gap
+
+#904 tried to close the remaining gap with a collector rule that treats
+`yfinance.download` with a literal `timeout=` as bounded. An independent review
+found two reasons to drop it:
+
+- The rule trusted the file-wide alias, so a shadowed or locally replaced
+  `download` was reported as bounded. These are the same false proofs that
+  #870 removed.
+- The timeout does not cover every request inside yfinance. In the yfinance
+  1.8.0 source, `timeout=10` reaches the chart request, while the timezone and
+  cookie/crumb requests use the library's own 10 s and 30 s. A static rule
+  cannot prove library internals.
+
+Every yfinance request still has a finite timeout, and the `Ticker.info` P/E
+lookup runs under a 30 s caller deadline. Leaving the gap open causes no hang.
+Removing the yfinance path would take P/E and price data away from users
+without an FMP key. The owner therefore accepted the gap. The collector is
+unchanged, and theme-detector's `security_review` stays `not_verified`, with
+the reason recorded in `production-verification-baseline.yaml`.
