@@ -136,10 +136,17 @@ def calculate_ema(prices: list[float], period: int = 50) -> float:
         period: EMA period (default 50)
 
     Returns:
-        EMA value
+        EMA value. Fewer than ``period`` prices returns the simple average.
+
+    Raises:
+        ValueError: If prices is empty or period < 1.
 
     Formula: EMA = Price * k + EMA_prev * (1-k), where k = 2/(period+1)
     """
+    if not prices:
+        raise ValueError("prices must not be empty")
+    if period < 1:
+        raise ValueError("period must be >= 1")
     if len(prices) < period:
         return sum(prices) / len(prices)  # Fallback to simple average
 

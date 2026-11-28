@@ -27,6 +27,13 @@ class TestEMA:
         assert result < 20
         assert result > 5
 
+    def test_insufficient_data_returns_simple_average(self):
+        assert ema([1.0, 2.0, 3.0], period=10) == pytest.approx(2.0)
+
+    def test_empty_values_raise(self):
+        with pytest.raises(ValueError):
+            ema([], period=10)
+
 
 class TestRollingMean:
     def test_returns_list_of_means(self):

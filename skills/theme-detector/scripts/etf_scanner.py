@@ -672,13 +672,16 @@ class ETFScanner:
     @staticmethod
     def _calculate_rsi(prices: pd.Series, period: int = 14) -> Optional[float]:
         """Calculate RSI using Wilder's smoothing method."""
+        if type(period) is not int or period <= 0:
+            return None
         if prices is None or len(prices) < period + 1:
             return None
         try:
             values = prices.astype(float)
         except (TypeError, ValueError):
             return None
-        if not bool(np.isfinite(values.to_numpy()).all()):
+        arr = values.to_numpy()
+        if not bool((np.isfinite(arr) & (arr > 0)).all()):
             # A missing or non-finite close would otherwise be read as a zero
             # daily change and fabricate an RSI; the other skill copies fail
             # closed on the same input.
@@ -700,10 +703,13 @@ class ETFScanner:
             avg_loss = (avg_loss * (period - 1) + losses.iloc[i]) / period
 
         if avg_loss == 0:
-            return 100.0
+            # A series with no movement is undefined, not overbought.
+            return None if avg_gain == 0 else 100.0
 
         rs = avg_gain / avg_loss
         rsi = 100.0 - (100.0 / (1.0 + rs))
+        if not np.isfinite(rsi):
+            return None
         return round(rsi, 2)
 
     @staticmethod

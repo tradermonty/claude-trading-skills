@@ -24,7 +24,7 @@ def _load_script():
     [
         ([100.0 + i for i in range(30)], 100.0),
         ([100.0 - i for i in range(30)], 0.0),
-        ([100.0] * 30, 100.0),  # Existing zero-loss convention, including flat series.
+        ([100.0] * 30, None),  # Flat series is undefined, not overbought (#663).
         ([100.0 + i for i in range(15)], 100.0),
         ([100.0] * 14, None),
         ([], None),

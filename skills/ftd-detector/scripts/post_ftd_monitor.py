@@ -626,9 +626,17 @@ FTD_GAIN_MINIMUM = 1.25
 
 
 def _calculate_ema(prices: list[float], period: int) -> float:
-    """Calculate EMA from chronological price list."""
+    """Calculate EMA from prices ordered oldest first (chronological).
+
+    Fewer than ``period`` prices returns the simple average of the prices given.
+    Raises ValueError if prices is empty or period < 1.
+    """
+    if not prices:
+        raise ValueError("prices must not be empty")
+    if period < 1:
+        raise ValueError("period must be >= 1")
     if len(prices) < period:
-        return sum(prices) / len(prices) if prices else 0
+        return sum(prices) / len(prices)
 
     sma = sum(prices[:period]) / period
     ema = sma
