@@ -405,3 +405,52 @@ def test_generate_stages_both_market_regime_variants_without_publishing(
         destination.name for _source, destination in staged if destination.parent == SPEC.parent
     ]
     assert market_destinations == ["sample-run", "sample-run-full-path"]
+
+
+def _coverage(verdict: str) -> dict:
+    evaluated = 1 if verdict == "complete" else 0
+    return {
+        "schema_version": "1.0",
+        "universe_size": 1,
+        "evaluated": evaluated,
+        "not_evaluated": 1 - evaluated,
+        "not_evaluated_reasons": {} if evaluated else {"provider_error": 1},
+        "verdict": verdict,
+    }
+
+
+def _replay_with_breadth_coverage(tmp_path: Path, verdict: str) -> dict:
+    payload = json.loads((SPEC.parent / "replay-inputs" / "breadth-components.json").read_text())
+    payload["evaluation_coverage"] = _coverage(verdict)
+    changed = tmp_path / "inputs" / "breadth.json"
+    changed.parent.mkdir()
+    changed.write_text(json.dumps(payload), encoding="utf-8")
+    output = tmp_path / "published"
+    execute_replay(
+        ROOT,
+        SPEC,
+        "required-only",
+        output,
+        input_overrides={"market_breadth_components": changed},
+    )
+    breadth = json.loads((output / "01_market_breadth_report.json").read_text())
+    assert breadth["evaluation_coverage"]["verdict"] == verdict
+    return json.loads((output / "04_exposure_decision.json").read_text())
+
+
+def test_not_evaluable_input_is_missing_not_confidence_raising(tmp_path: Path) -> None:
+    """Issue #711: exposure-coach must not score a not_evaluable breadth input."""
+    decision = _replay_with_breadth_coverage(tmp_path, "not_evaluable")
+
+    assert "breadth" in decision["inputs_missing"]
+    assert "breadth" not in decision["inputs_provided"]
+    assert "breadth_score" not in decision["component_scores"]
+    assert decision["recommendation"] != "NEW_ENTRY_ALLOWED"
+    assert decision["confidence"] == "LOW"
+
+
+def test_complete_coverage_input_keeps_its_score(tmp_path: Path) -> None:
+    decision = _replay_with_breadth_coverage(tmp_path, "complete")
+
+    assert "breadth" in decision["inputs_provided"]
+    assert decision["component_scores"]["breadth_score"] > 0
