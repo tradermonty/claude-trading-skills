@@ -355,17 +355,17 @@ def print_analysis_report(
     elif abs(current_zscore) < entry_zscore:
         print(f"  Signal: ⏸ WAIT (|z| < {entry_zscore})")
         print("  Status: Spread within normal range, no trade signal")
-    elif current_zscore > entry_zscore:
+    elif current_zscore >= entry_zscore:
         print("  Signal: 🔻 SHORT SPREAD")
         print(f"  Action: Short {symbol_a}, Long {symbol_b}")
         print(
-            f"  Rationale: Z-score = {current_zscore:.2f} (>{entry_zscore}) → {symbol_a} expensive relative to {symbol_b}"
+            f"  Rationale: Z-score = {current_zscore:.2f} (>= {entry_zscore}) → {symbol_a} expensive relative to {symbol_b}"
         )
-    else:  # current_zscore < -entry_zscore
+    else:  # current_zscore <= -entry_zscore
         print("  Signal: 🔺 LONG SPREAD")
         print(f"  Action: Long {symbol_a}, Short {symbol_b}")
         print(
-            f"  Rationale: Z-score = {current_zscore:.2f} (<-{entry_zscore}) → {symbol_a} cheap relative to {symbol_b}"
+            f"  Rationale: Z-score = {current_zscore:.2f} (<= -{entry_zscore}) → {symbol_a} cheap relative to {symbol_b}"
         )
 
     # Position Sizing (if signal exists)
@@ -384,27 +384,32 @@ def print_analysis_report(
                 f"  Unavailable: non-positive hedge ratio (beta={beta_result['beta']:.4f}) "
                 "or invalid latest prices; cannot construct a long/short hedge."
             )
-        elif current_zscore > entry_zscore:
+        elif current_zscore >= entry_zscore:
             # Short A, Long B
             print(
                 f"  SHORT {symbol_a}: ${sizing['notional_a']:,.0f} "
-                f"({sizing['shares_a']:.0f} shares @ ${price_a:.2f})"
+                f"({sizing['shares_a']:.2f} shares @ ${price_a:.2f})"
             )
             print(
                 f"  LONG {symbol_b}: ${sizing['notional_b']:,.0f} "
-                f"({sizing['shares_b']:.0f} shares @ ${price_b:.2f})"
+                f"({sizing['shares_b']:.2f} shares @ ${price_b:.2f})"
             )
         else:
             # Long A, Short B
             print(
                 f"  LONG {symbol_a}: ${sizing['notional_a']:,.0f} "
-                f"({sizing['shares_a']:.0f} shares @ ${price_a:.2f})"
+                f"({sizing['shares_a']:.2f} shares @ ${price_a:.2f})"
             )
             print(
                 f"  SHORT {symbol_b}: ${sizing['notional_b']:,.0f} "
-                f"({sizing['shares_b']:.0f} shares @ ${price_b:.2f})"
+                f"({sizing['shares_b']:.2f} shares @ ${price_b:.2f})"
             )
 
+        if sizing is not None:
+            print(
+                "  Share counts are fractional, shown to 2 decimals; "
+                "dollar amounts use the unrounded sizes."
+            )
         print("\n  Exit Conditions:")
         print(f"    - Primary: Z-score crosses {exit_zscore} (mean reversion)")
         print("    - Stop Loss: Z-score > ±3.0 (extreme divergence)")
