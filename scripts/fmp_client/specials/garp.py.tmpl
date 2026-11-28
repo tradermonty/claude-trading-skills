@@ -566,8 +566,6 @@ class FMPClient:
         data = self._stable_then_v3(
             "company-screener",
             params,
-            v3_endpoint="stock-screener",
-            v3_params=params,
             ttl_seconds=self.cache_policy.universe_ttl_seconds,
             allow_empty=True,
             validate=_valid_records_payload,

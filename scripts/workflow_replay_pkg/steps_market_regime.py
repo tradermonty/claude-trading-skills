@@ -7,6 +7,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from evaluation_coverage import validate_evaluation_coverage
+
 from .artifacts import _artifact_paths, _latest_report
 from .common import (
     ReplayError,
@@ -41,7 +43,14 @@ def _validate_market_component_fixture(
             "data_availability",
             "warning_flags",
         },
+        optional={"evaluation_coverage"},
     )
+    if "evaluation_coverage" in payload:
+        coverage_errors = validate_evaluation_coverage(payload["evaluation_coverage"])
+        if coverage_errors:
+            raise ReplayError(
+                f"{kind} fixture invalid evaluation_coverage: " + "; ".join(coverage_errors)
+            )
     if payload["schema_version"] != 1 or payload["kind"] != kind:
         raise ReplayError(f"invalid {kind} component fixture identity")
     as_of = _parse_rfc3339(payload["as_of"], f"{kind}.as_of")
@@ -160,6 +169,9 @@ def _market_analysis(
             ],
         },
     }
+
+    if "evaluation_coverage" in fixture:
+        result["evaluation_coverage"] = dict(fixture["evaluation_coverage"])
 
     if kind in {"breadth", "uptrend"}:
         contract = _load_module_from_path(

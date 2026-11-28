@@ -22,7 +22,9 @@ class CoverageFMPClient(FMPClient):
 
     def _warn_fallback(self, base_url, is_last, reason):
         if reason:
-            if "HTTP 402" in reason:
+            if "HTTP 402" in reason or (
+                "HTTP 403" in reason and "legacy endpoint" in reason.lower()
+            ):
                 code = "plan_gated"
             elif any(text in reason for text in ("HTTP ", "request exception", "rate limit")):
                 code = "provider_error"

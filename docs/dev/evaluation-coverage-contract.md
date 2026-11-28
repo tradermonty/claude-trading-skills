@@ -142,3 +142,12 @@ reaches the native consumer and is excluded there. Market-regime replay accepts
 the optional field for progressive adoption. Regression fixtures exercise that
 handoff; the remaining screeners are follow-up slices of #711, not claimed
 implemented here.
+
+## Replay proof of downstream handling
+
+`scripts/tests/test_workflow_replay_market_regime.py` replays `market-regime-daily`
+with a breadth fixture carrying a `not_evaluable` `evaluation_coverage`. The
+replay harness validates the block and writes it into the handoff artifact;
+Exposure Coach then lists the input as missing, omits its score, keeps
+confidence `LOW` and never returns `NEW_ENTRY_ALLOWED`. A `complete` block keeps
+the score.

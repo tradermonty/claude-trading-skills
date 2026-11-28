@@ -55,7 +55,7 @@ Use this skill when:
 
 ## 3. Prerequisites
 
-- **FMP API Key:** Set `FMP_API_KEY` environment variable or pass `--api-key` to scripts
+- **FMP API Key:** Set `FMP_API_KEY` environment variable or pass `--api-key` to scripts. 13F institutional-ownership data is not served on the free FMP plan, so a paid plan is required (see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans))
 - **Python 3.8+:** Required for running analysis scripts
 - **Dependencies:** `pip install requests` (scripts handle missing dependencies gracefully)
 

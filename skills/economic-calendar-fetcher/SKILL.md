@@ -56,7 +56,7 @@ Use this skill when the user requests:
 
 ## Prerequisites
 
-- **FMP API Key** (required): Sign up at https://financialmodelingprep.com for a free key (250 requests/day). Set via `FMP_API_KEY` environment variable or pass `--api-key` to the script.
+- **FMP API Key** (required): Sign up at https://financialmodelingprep.com. The economic calendar endpoint needs a paid plan; a free key gets HTTP 402 (see `docs/en/getting-started.md#fmp-plans`). Set via `FMP_API_KEY` environment variable or pass `--api-key` to the script.
 - **Python 3.10+**: Required to run `skills/economic-calendar-fetcher/scripts/get_economic_calendar.py`.
 - **No third-party packages**: The script uses only the Python standard library.
 
@@ -73,7 +73,7 @@ Follow these steps to fetch and analyze the economic calendar:
 3. **Not recommended:** Asking the user to paste the key into chat — session logs may retain it
 4. If user doesn't have an API key, provide instructions:
    - Visit https://financialmodelingprep.com
-   - Sign up for free account (250 requests/day limit)
+   - Sign up and choose a plan that includes the economic calendar (the free plan does not)
    - Navigate to API dashboard to obtain key
 
 **Example user interaction:**
@@ -348,10 +348,10 @@ If user requested specific filters, note at top:
 - Legacy endpoint retired: `https://financialmodelingprep.com/api/v3/economic_calendar` was shut down by FMP on 2025-08-31 and now returns `403 Legacy Endpoint`. Do not use it or fall back to it.
 - Restricted-endpoint caveat: the stable Economic Calendar endpoint may require a paid FMP subscription tier. If the API key lacks entitlement, it returns `402 Payment Required`, which the script surfaces as a clear error rather than an empty list.
 - Date-range caveat: responses can include rows just outside the requested `from`/`to` window; after fetching, filter events locally by parsed `date` so only the requested date range is reported.
-- Authentication: API key required (free tier: 250 requests/day)
+- Authentication: API key required; the endpoint is not on the free plan (HTTP 402)
 - Max date range: 90 days per request
 - Response format: JSON array of event objects
-- Rate limits: 5 requests/second (free tier)
+- Rate limits: 5 requests/second
 
 **Event Coverage:**
 - Major economies: US, EU, UK, Japan, China, Canada, Australia, Switzerland

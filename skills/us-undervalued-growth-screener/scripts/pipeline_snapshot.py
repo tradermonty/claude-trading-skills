@@ -14,6 +14,7 @@ from coverage_semantics import build_coverage_block, classify_ranking_scope
 from fmp_client import ApiCallBudgetExceeded, FMPClient
 from pipeline_common import (
     PipelineResult,
+    _empty_universe_message,
     _first_number,
     _invalidate_candidate_decisions,
     _invalidate_final_screen_audit,
@@ -697,7 +698,7 @@ def execute_collect_estimates(
             maximum_depth=int(config["maximum_market_cap_band_depth"]),
         )
         if not universe_rows:
-            raise ValueError("FMP company screener returned no normalized listing rows")
+            raise ValueError(_empty_universe_message(client))
         profile_overrides = {
             str(key).upper(): str(value)
             for key, value in (config.get("sector_profile_overrides") or {}).items()

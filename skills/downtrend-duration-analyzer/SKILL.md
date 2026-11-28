@@ -20,7 +20,7 @@ Analyze historical price data to identify downtrend periods (peak-to-trough) and
 ## Prerequisites
 
 - Python 3.9+
-- FMP API key (set `FMP_API_KEY` environment variable or use `--api-key`)
+- FMP API key (set `FMP_API_KEY` environment variable or use `--api-key`). The stock universe comes from the company screener, which the free FMP plan does not include (HTTP 402/403); a plan that includes it is required (see `docs/en/getting-started.md#fmp-plans`)
 - Required packages: `requests`, `pandas`, `numpy` (standard data analysis stack)
 
 The generated FMP client calls `/stable/company-screener` and
