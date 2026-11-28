@@ -360,9 +360,13 @@ def test_fmp_package_drift_ci_step_matches_constant() -> None:
     assert isinstance(metadata, dict)
     steps = metadata.get("steps")
     assert isinstance(steps, list)
-    matching_steps = [step for step in steps if step.get("name") == "FMP skill package drift check"]
+    # CI checks every skill's package (issue #503), a superset of the pre-commit
+    # hook's FMP skill list.
+    matching_steps = [
+        step for step in steps if step.get("name") == "Skill package drift check (all skills)"
+    ]
     assert len(matching_steps) == 1
-    assert matching_steps[0].get("run") == FMP_PACKAGE_DRIFT_COMMAND
+    assert matching_steps[0].get("run") == "python3 scripts/package_skills.py --check"
 
 
 def test_fmp_package_drift_pre_commit_hook_matches_constant() -> None:
