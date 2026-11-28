@@ -18,7 +18,7 @@ repos:
         args: [--maxkb=500]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.0
+    rev: v0.17.6
     hooks:
       # The FMP client templates carry a python3 shebang. On Windows, where
       # every file counts as executable, pre-commit reads it and tags them as
