@@ -137,6 +137,12 @@ python3 skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py
 - Watch-only 候補: モデルブックに残し、チャート確認で格上げされない限り売買計画にしない
 - Rejected 候補: 実行用ではなく、後日の失敗例分析に使う
 
+両レポートには `evaluation_coverage` ブロックが含まれます（`docs/dev/evaluation-coverage-contract.md`）。
+候補0件の結果は、必ず `verdict` と合わせて読みます。全対象銘柄がスクリーニング判定に
+到達したのは `complete` のときだけです。古い・短い・日付のない・未確定の価格データや
+取得失敗は拒否ではなく、`not_evaluated_reasons` に未評価として計上されます。
+何も評価できなかった実行でも、両レポートは `not_evaluable` の判定で出力され、終了コードは0です。
+
 ---
 
 ## 6. リソース

@@ -119,6 +119,12 @@ python3 skills/stockbee-exhaustion-hammer-screener/scripts/screen_exhaustion_ham
 
 Actionable 候補でも、必ずチャート確認、決算・ニュースリスク確認、ポジションサイズ計算を行います。
 
+両レポートには `evaluation_coverage` ブロックが含まれます（`docs/dev/evaluation-coverage-contract.md`）。
+候補0件の結果は、必ず `verdict` と合わせて読みます。全対象銘柄がスクリーニング判定に
+到達したのは `complete` のときだけです。価格履歴の不足や取得失敗は拒否ではなく、
+`not_evaluated_reasons` に未評価として計上されます。何も評価できなかった実行でも、
+両レポートは `not_evaluable` の判定で出力され、終了コードは0です。
+
 ---
 
 ## 6. リソース
