@@ -142,20 +142,20 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
 **プロンプト:**
 ```
 決算ギャップ+3%で日中に前日終値まで戻る平均回帰戦略のバックテストを評価して。
-200トレード、勝率58%、平均利益1.5%、平均損失1.0%、最大ドローダウン12%、
-10年間テスト、パラメータ4つ、スリッページテスト済み。
+150トレード、勝率62%、平均利益1.8%、平均損失1.2%、最大ドローダウン15%、
+8年間テスト、パラメータ3つ、スリッページテスト済み。
 ```
 
 **CLIコマンド:**
 ```bash
 python3 skills/backtest-expert/scripts/evaluate_backtest.py \
-  --total-trades 200 \
-  --win-rate 58 \
-  --avg-win-pct 1.5 \
-  --avg-loss-pct 1.0 \
-  --max-drawdown-pct 12 \
-  --years-tested 10 \
-  --num-parameters 4 \
+  --total-trades 150 \
+  --win-rate 62 \
+  --avg-win-pct 1.8 \
+  --avg-loss-pct 1.2 \
+  --max-drawdown-pct 15 \
+  --years-tested 8 \
+  --num-parameters 3 \
   --slippage-tested \
   --output-dir reports/
 ```
@@ -214,6 +214,42 @@ python3 skills/backtest-expert/scripts/evaluate_backtest.py \
 ```
 
 **期待されるレッドフラグ:** 小サンプル、スリッページ未テスト、過剰最適化、短テスト期間、結果が良すぎる -- 5つ同時発生。一見優秀でも複数フラグが同時発生する結果は信頼できません。
+
+---
+
+### 例3b: 英語ガイドと同一入力のCLI検証
+
+英語ガイドのExample 2/3と同じ入力で、低勝率・高ペイオフの戦略と、過剰最適化が疑われる戦略を評価します。
+
+**低勝率・高ペイオフ（ペイオフ比2.33:1）:**
+```bash
+python3 skills/backtest-expert/scripts/evaluate_backtest.py \
+  --total-trades 85 \
+  --win-rate 48 \
+  --avg-win-pct 3.5 \
+  --avg-loss-pct 1.5 \
+  --max-drawdown-pct 22 \
+  --years-tested 5 \
+  --num-parameters 5 \
+  --output-dir reports/
+```
+
+**期待される結果:** Refine。勝率は低いものの期待値が十分かを判定し、スリッページ未テストを弱点として指摘。パラメータ数は中程度。
+
+**結果が良すぎるバックテスト（カーブフィッティングの疑い）:**
+```bash
+python3 skills/backtest-expert/scripts/evaluate_backtest.py \
+  --total-trades 25 \
+  --win-rate 88 \
+  --avg-win-pct 4.2 \
+  --avg-loss-pct 0.8 \
+  --max-drawdown-pct 8 \
+  --years-tested 2 \
+  --num-parameters 9 \
+  --output-dir reports/
+```
+
+**期待されるレッドフラグ:** 25トレード（30未満）、9パラメータ（過剰最適化）、2年（短すぎる）、スリッページ未テスト、勝率88% + DD8%。採用可否はAbandon、または強いRefineが妥当です。
 
 ---
 
