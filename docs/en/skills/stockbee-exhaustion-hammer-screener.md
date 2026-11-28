@@ -62,7 +62,7 @@ Do not use it to auto-place trades or to trade against a restrictive market-regi
 
 ## 3. Prerequisites
 
-For live universe and FMP data:
+For live universe and FMP data (`--fmp-universe` calls the company screener, which the free FMP plan does not include (HTTP 402/403); use `--symbols`, `--universe-file` or `--prices-json` on the free plan, or a plan that includes the screener (see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans)).):
 
 ```bash
 export FMP_API_KEY=your_api_key_here

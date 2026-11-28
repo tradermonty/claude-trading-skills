@@ -239,13 +239,13 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Contrarian Setup Gate** | ❌ Not used | ❌ Not used | ❌ Not used | Reads the three upstream contrarian-pipeline report JSONs; works offline |
 | **Crypto Regime Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Free public API, no key; universe, price history, BTC dominance; Public futures endpoint for perp funding; component skipped if unreachable; Offline snapshot path (--input-json); schema in references |
 | **Data Quality Checker** | ❌ Not used | ❌ Not used | ❌ Not used | Local markdown validation; works offline |
-| **Dividend Growth Pullback Screener** | ✅ Required | 🟡 Optional (Recommended) | ❌ Not used | Financial Modeling Prep API |
-| **Downtrend Duration Analyzer** | ✅ Required | ❌ Not used | ❌ Not used | FMP stock universe and historical prices; an API key is required |
+| **Dividend Growth Pullback Screener** | ✅ Required | 🟡 Optional (Recommended) | ❌ Not used | Financial Modeling Prep API; FMP-only mode needs a plan that includes the stock screener, otherwise use FINVIZ |
+| **Downtrend Duration Analyzer** | ✅ Required | ❌ Not used | ❌ Not used | FMP stock universe and historical prices; the company screener needs a paid FMP plan (HTTP 402/403 on a Basic key) |
 | **Drawdown Circuit Breaker** | ❌ Not used | ❌ Not used | ❌ Not used | Reads trader-memory-core thesis YAML files; pure calculation, works offline |
 | **Dual Axis Skill Reviewer** | ❌ Not used | ❌ Not used | ❌ Not used | Deterministic scoring + optional LLM review |
 | **Earnings Calendar** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Earnings Trade Analyzer** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
-| **Economic Calendar Fetcher** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
+| **Economic Calendar Fetcher** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API; the economic calendar endpoint needs a paid FMP plan (HTTP 402 on a Basic key) |
 | **Edge Candidate Agent** | 🟡 Optional | ❌ Not used | ❌ Not used | Optional OHLCV via FMP for edge ticket export |
 | **Edge Concept Synthesizer** | ❌ Not used | ❌ Not used | ❌ Not used | Synthesizes detector tickets and hints into edge concepts |
 | **Edge Hint Extractor** | ❌ Not used | ❌ Not used | ❌ Not used | Extracts hints from observations/news; pure calculation |
@@ -258,8 +258,8 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **FXMacroData Calendar** | ❌ Not used | ❌ Not used | ❌ Not used | FXMacroData REST API; public USD calendar rows work without a key |
 | **Finviz Screener** | ❌ Not used | 🟡 Optional | ❌ Not used | FINVIZ Elite API |
 | **Futures Position Sizer** | ❌ Not used | ❌ Not used | ❌ Not used | Pure calculation; consumes contrarian-setup-gate's READY_FOR_PLAN report or explicit direction/entry/stop flags; works offline |
-| **IBD Distribution Day Monitor** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
-| **Institutional Flow Tracker** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
+| **IBD Distribution Day Monitor** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API; SPY works on a Basic key, but QQQ history can be refused (HTTP 402/403) and needs a paid FMP plan |
+| **Institutional Flow Tracker** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API; 13F institutional-ownership data needs a paid FMP plan and is empty on a Basic key |
 | **Kanchi Dividend Review Monitor** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | Dividend / price monitoring via FMP |
 | **Kanchi Dividend SOP** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | US dividend stock data via FMP |
 | **Kanchi Dividend US Tax Accounting** | ❌ Not used | ❌ Not used | ❌ Not used | US tax workflow guidance; pure calculation |
@@ -273,7 +273,7 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Options Strategy Advisor** | 🟡 Optional | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **PEAD Screener** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
 | **Pair Trade Screener** | ✅ Required | ❌ Not used | ❌ Not used | Financial Modeling Prep API |
-| **Parabolic Short Trade Planner** | ✅ Required | ❌ Not used | 🟡 Optional | Financial Modeling Prep API |
+| **Parabolic Short Trade Planner** | ✅ Required | ❌ Not used | 🟡 Optional | Financial Modeling Prep API; some symbol quote and history requests are refused on a Basic key (HTTP 402/403), so a paid FMP plan may be needed |
 | **Portfolio Manager** | ❌ Not used | ❌ Not used | 🟡 Optional | Required for full brokerage analysis; local CSV/saved-position allocation review needs no credentials |
 | **Position Sizer** | ❌ Not used | ❌ Not used | ❌ Not used | Pure calculation; works offline |
 | **Pre-Trade Discipline Gate** | ❌ Not used | ❌ Not used | ❌ Not used | Reads local checklist, workflow artifacts, and trader-memory-core state; works offline |
@@ -287,8 +287,8 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Stanley Druckenmiller Investment** | ❌ Not used | ❌ Not used | ❌ Not used | Synthesizes outputs from upstream skills; pure calculation |
 | **Stockbee 20% Study** | ✅ Required | ❌ Not used | ❌ Not used | Live US universe, daily OHLCV, symbol profile, and optional historical backfill data |
 | **Stockbee Episodic Pivot Analyzer** | 🟡 Optional | ❌ Not used | ❌ Not used | Optional OHLCV enrichment via Financial Modeling Prep |
-| **Stockbee Exhaustion Hammer Screener** | ✅ Required | ❌ Not used | ❌ Not used | Live US universe, daily OHLCV, and optional quote-derived near-close bar via Financial Modeling Prep |
-| **Stockbee Momentum Burst Screener** | ✅ Required | ❌ Not used | ❌ Not used | Live US universe and daily OHLCV via Financial Modeling Prep |
+| **Stockbee Exhaustion Hammer Screener** | ✅ Required | ❌ Not used | ❌ Not used | Live US universe, daily OHLCV, and optional quote-derived near-close bar via Financial Modeling Prep; --fmp-universe needs a plan that includes the company screener |
+| **Stockbee Momentum Burst Screener** | ✅ Required | ❌ Not used | ❌ Not used | Live US universe and daily OHLCV via Financial Modeling Prep; --fmp-universe needs a plan that includes the company screener |
 | **Stockbee Setup Fluency Trainer** | 🟡 Optional | ❌ Not used | ❌ Not used | Financial Modeling Prep daily OHLCV for automatic outcome updates when local prices are unavailable |
 | **Strategy Pivot Designer** | ❌ Not used | ❌ Not used | ❌ Not used | Pivot proposal generator; pure calculation |
 | **Technical Analyst** | 🟡 Optional | ❌ Not used | ❌ Not used | Optional weekly OHLCV fallback for contrarian confirmation (Shapiro step 3) |
@@ -299,10 +299,10 @@ The table below is **auto-generated** from `skills-index.yaml` by `scripts/gener
 | **Trading Skills Navigator** | ❌ Not used | ❌ Not used | ❌ Not used | Reads local skills-index.yaml + workflows/*.yaml (or bundled snapshot); no network |
 | **US Market Bubble Detector** | ❌ Not used | ❌ Not used | ❌ Not used | User provides indicators |
 | **US Stock Analysis** | ❌ Not used | ❌ Not used | ❌ Not used | User provides the ticker or question, optionally own data; Current market data via web search |
-| **US Undervalued Growth Screener** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | Claude Code-native direct REST path using FMP_API_KEY. Bulk responses are cached and written to local artifacts; only compact screening results are returned to the model. Plan-gated bulk endpoints use bounded per-symbol fallbacks. |
+| **US Undervalued Growth Screener** | 🟡 Optional (Recommended) | ❌ Not used | ❌ Not used | Claude Code-native direct REST path using FMP_API_KEY. Bulk responses are cached and written to local artifacts; only compact screening results are returned to the model. Plan-gated bulk endpoints use bounded per-symbol fallbacks. Discovery needs a plan that includes the company screener (HTTP 402/403 on a Basic key); there is no legacy v3 fallback. |
 | **Uptrend Analyzer** | ❌ Not used | ❌ Not used | ❌ Not used | Monty Uptrend Ratio Dashboard CSV; no API key required |
-| **VCP Screener** | ✅ Required | ❌ Not used | ❌ Not used | S&P 500 OHLCV via FMP |
-| **Value Dividend Screener** | ✅ Required | 🟡 Optional (Recommended) | ❌ Not used | Financial Modeling Prep API |
+| **VCP Screener** | ✅ Required | ❌ Not used | ❌ Not used | S&P 500 OHLCV via FMP; quote requests can be refused on a Basic key (HTTP 402/403), so a paid FMP plan may be needed |
+| **Value Dividend Screener** | ✅ Required | 🟡 Optional (Recommended) | ❌ Not used | Financial Modeling Prep API; FMP-only mode needs a plan that includes the stock screener, otherwise use FINVIZ |
 | **Weekly Performance Digest** | ❌ Not used | ❌ Not used | ❌ Not used | Pure calculation; works offline |
 | **manifoldbt Backtester** | ❌ Not used | ❌ Not used | ❌ Not used | pip install manifoldbt; free tier covers this skill, no API key; CSV or Parquet with timestamp, open, high, low, close, volume |
 <!-- skills-index:end name="api-matrix" -->
@@ -345,7 +345,7 @@ export ALPACA_PAPER="true"  # or "false" for live trading
 #### API Pricing and Access
 
 **Financial Modeling Prep (FMP):**
-- **Free Tier:** 250 API calls/day (sufficient for occasional use)
+- **Free Tier:** 250 API calls/day. The free plan does not serve the stock screener, economic calendar, 13F ownership or some quote endpoints; skills that need them require a paid plan (see the API Requirements notes above)
 - **Paid plans:** see the dated [FMP plans note](https://tradermonty.github.io/claude-trading-skills/en/getting-started/#fmp-plans) for current prices and rate limits (the only place prices are listed)
 - **Sign up:** https://site.financialmodelingprep.com/developer/docs
 
@@ -364,9 +364,9 @@ export ALPACA_PAPER="true"  # or "false" for live trading
 
 **Recommendations by Use Case:**
 - **Dividend Screening:** FMP free tier + FINVIZ Elite ($330/year) for optimal performance
-- **Budget Dividend Screening:** FMP free tier only (slower execution)
+- **Budget Dividend Screening:** FMP-only mode needs a plan that includes the stock screener; on the free plan use `--use-finviz`
 - **Portfolio Management:** Alpaca paper account (free) for practice, live account for production
-- **Options Education:** FMP free tier sufficient; Options Strategy Advisor works with theoretical pricing alone
+- **Options Education:** FMP free tier is enough for theoretical pricing; Options Strategy Advisor works with theoretical pricing alone
 
 #### API Script Pattern
 

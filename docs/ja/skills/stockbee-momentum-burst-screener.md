@@ -64,7 +64,7 @@ Stockbee Momentum Burst Screener は、短期の 3-5 日スイングを想定し
 
 ## 3. 前提条件
 
-ライブのユニバース取得と過去 OHLCV 取得には Financial Modeling Prep の API キーが必要です。
+ライブのユニバース取得と過去 OHLCV 取得には Financial Modeling Prep の API キーが必要です。`--fmp-universe` は company screener を使いますが、無料の FMP プランには含まれません（HTTP 402/403）。無料プランでは `--symbols`、`--universe-file`、`--prices-json` を使うか、screener を含むプランを使用してください（[FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）。
 
 ```bash
 export FMP_API_KEY=your_api_key_here
@@ -136,6 +136,12 @@ python3 skills/stockbee-momentum-burst-screener/scripts/screen_momentum_burst.py
 - B 候補: ウォッチリスト、または小さなリスクでの検討に留める
 - Watch-only 候補: モデルブックに残し、チャート確認で格上げされない限り売買計画にしない
 - Rejected 候補: 実行用ではなく、後日の失敗例分析に使う
+
+両レポートには `evaluation_coverage` ブロックが含まれます（`docs/dev/evaluation-coverage-contract.md`）。
+候補0件の結果は、必ず `verdict` と合わせて読みます。全対象銘柄がスクリーニング判定に
+到達したのは `complete` のときだけです。古い・短い・日付のない・未確定の価格データや
+取得失敗は拒否ではなく、`not_evaluated_reasons` に未評価として計上されます。
+何も評価できなかった実行でも、両レポートは `not_evaluable` の判定で出力され、終了コードは0です。
 
 ---
 

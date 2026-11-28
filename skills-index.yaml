@@ -288,7 +288,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: Financial Modeling Prep API
+    note: Financial Modeling Prep API; FMP-only mode needs a plan that includes the stock screener, otherwise use FINVIZ
   - id: finviz
     type: screener
     requirement: recommended
@@ -324,7 +324,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: FMP stock universe and historical prices; an API key is required
+    note: FMP stock universe and historical prices; the company screener needs a paid FMP plan (HTTP 402/403 on a Basic key)
   inputs:
   - historical_correction_data
   outputs:
@@ -481,7 +481,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: Financial Modeling Prep API
+    note: Financial Modeling Prep API; the economic calendar endpoint needs a paid FMP plan (HTTP 402 on a Basic key)
   inputs:
   - date_range
   outputs:
@@ -883,7 +883,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: Financial Modeling Prep API
+    note: Financial Modeling Prep API; SPY works on a Basic key, but QQQ history can be refused (HTTP 402/403) and needs a paid FMP plan
   inputs:
   - qqq_ohlcv
   - spy_ohlcv
@@ -914,7 +914,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: Financial Modeling Prep API
+    note: Financial Modeling Prep API; 13F institutional-ownership data needs a paid FMP plan and is empty on a Basic key
   inputs:
   - 13f_filings
   - fund_universe
@@ -1359,7 +1359,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: Financial Modeling Prep API
+    note: Financial Modeling Prep API; some symbol quote and history requests are refused on a Basic key (HTTP 402/403), so a paid FMP plan may be needed
   - id: alpaca
     type: broker
     requirement: optional
@@ -1844,7 +1844,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: Live US universe, daily OHLCV, and optional quote-derived near-close bar via Financial Modeling Prep
+    note: Live US universe, daily OHLCV, and optional quote-derived near-close bar via Financial Modeling Prep; --fmp-universe needs a plan that includes the company screener
   - id: prices_json
     type: local_file
     requirement: optional
@@ -1882,7 +1882,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: Live US universe and daily OHLCV via Financial Modeling Prep
+    note: Live US universe and daily OHLCV via Financial Modeling Prep; --fmp-universe needs a plan that includes the company screener
   - id: prices_json
     type: local_file
     requirement: optional
@@ -2301,7 +2301,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: Financial Modeling Prep API
+    note: Financial Modeling Prep API; FMP-only mode needs a plan that includes the stock screener, otherwise use FINVIZ
   - id: finviz
     type: screener
     requirement: recommended
@@ -2336,7 +2336,7 @@ skills:
   - id: fmp
     type: market_data
     requirement: required
-    note: S&P 500 OHLCV via FMP
+    note: S&P 500 OHLCV via FMP; quote requests can be refused on a Basic key (HTTP 402/403), so a paid FMP plan may be needed
   inputs:
   - sp500_ohlcv
   outputs:
@@ -2411,7 +2411,8 @@ skills:
       Claude Code-native direct REST path using FMP_API_KEY. Bulk responses are
       cached and written to local artifacts; only compact screening results are
       returned to the model. Plan-gated bulk endpoints use bounded per-symbol
-      fallbacks.
+      fallbacks. Discovery needs a plan that includes the company screener
+      (HTTP 402/403 on a Basic key); there is no legacy v3 fallback.
   - id: alternate_market_data
     type: market_data
     requirement: optional

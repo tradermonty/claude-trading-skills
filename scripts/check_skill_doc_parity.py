@@ -45,21 +45,12 @@ class AllowEntry:
     review_by: str
 
 
-# Pre-existing divergences out of scope for the flipping PR (#433).
+# Pre-existing divergences tracked in the open allowlist-sync issue #911
+# (split out of #665); the original flipping PR (#433) is closed, so entries
+# must not point at it.
 # Each entry: exact normalized EN commands that may be absent from JA.
 # New divergences (commands not listed here) fail --check.
 _ALLOWLIST: list[AllowEntry] = [
-    AllowEntry(
-        skill="backtest-expert",
-        commands=[
-            "python3 skills/backtest-expert/scripts/evaluate_backtest.py --total-trades 150 --win-rate 62 --avg-win-pct 1.8 --avg-loss-pct 1.2 --max-drawdown-pct 15 --years-tested 8 --num-parameters 3 --slippage-tested --output-dir reports/",
-            "python3 skills/backtest-expert/scripts/evaluate_backtest.py --total-trades 25 --win-rate 88 --avg-win-pct 4.2 --avg-loss-pct 0.8 --max-drawdown-pct 8 --years-tested 2 --num-parameters 9 --output-dir reports/",
-            "python3 skills/backtest-expert/scripts/evaluate_backtest.py --total-trades 85 --win-rate 48 --avg-win-pct 3.5 --avg-loss-pct 1.5 --max-drawdown-pct 22 --years-tested 5 --num-parameters 5 --output-dir reports/",
-        ],
-        reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
-        review_by="2026-12-31",
-    ),
     AllowEntry(
         skill="breakout-trade-planner",
         commands=[
@@ -69,7 +60,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 skills/vcp-screener/scripts/screen_vcp.py --output-dir reports/",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -80,7 +71,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 skills/canslim-screener/scripts/screen_canslim.py --universe NVDA AMD QCOM AVGO TXN INTC MU MRVL AMAT LRCX --output-dir reports/",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -91,7 +82,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 screen_dividend_growth_rsi.py --use-finviz --min-yield 2.0 --min-div-growth 15.0 --rsi-max 35",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -100,7 +91,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 skills/exposure-coach/scripts/calculate_exposure.py --breadth reports/breadth_latest.json --uptrend reports/uptrend_latest.json --regime reports/regime_latest.json --top-risk reports/top_risk_latest.json --ftd reports/ftd_latest.json --theme reports/theme_latest.json --sector reports/sector_latest.json --institutional reports/institutional_latest.json --output-dir reports/",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -109,7 +100,7 @@ _ALLOWLIST: list[AllowEntry] = [
             'python3 skills/finviz-screener/scripts/open_finviz_screener.py --filters "fa_div_o3,fa_pe_u20,cap_large" --view valuation --order dividendyield --url-only',
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -118,7 +109,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 skills/fxmacrodata-calendar/scripts/fetch_calendar.py --currency usd --min-tier 1",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -127,7 +118,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 skills/position-sizer/scripts/position_sizer.py --account-size 100000 --entry 850 --atr 22.50 --atr-multiplier 2.0 --risk-pct 1.0 --output-dir reports/",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -140,7 +131,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 skills/signal-postmortem/scripts/postmortem_analyzer.py --postmortems-dir reports/postmortems/ --summary --group-by skill,month --output-dir reports/",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -150,7 +141,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 skills/stockbee-episodic-pivot-analyzer/scripts/analyze_ep.py --events-json data/catalysts.json --momentum-json reports/stockbee_momentum_burst_YYYY-MM-DD_HHMMSS.json --output-dir reports/",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -159,7 +150,7 @@ _ALLOWLIST: list[AllowEntry] = [
             'python3 skills/trading-skills-navigator/scripts/recommend.py --query "<the user\'s goal, verbatim>" --format json',
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -168,7 +159,7 @@ _ALLOWLIST: list[AllowEntry] = [
             'python3 skills/us-market-bubble-detector/scripts/bubble_scorer.py --scores \'{"mass_penetration":0,"media_saturation":1,"new_accounts":0,"new_issuance":1,"leverage":1,"price_acceleration":1,"valuation_disconnect":0,"breadth_expansion":1}\' --output text',
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
     AllowEntry(
@@ -178,7 +169,7 @@ _ALLOWLIST: list[AllowEntry] = [
             "python3 skills/vcp-screener/scripts/screen_vcp.py --universe AAPL NVDA MSFT AMZN META AVGO CRM ADBE --output-dir reports/",
         ],
         reason="pre-existing hand-translation divergence; sync in a follow-up",
-        issue_ref="#433",
+        issue_ref="#911",
         review_by="2026-12-31",
     ),
 ]

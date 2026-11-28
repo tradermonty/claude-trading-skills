@@ -389,7 +389,7 @@ Core + Satellite の主導線は上記の「おすすめの始め方」にまと
 ### APIキー設定
 
 **Financial Modeling Prep (FMP) API:**
-- 無料ティア: 250リクエスト/日（ほとんどのスキルに十分）
+- 無料ティア: 250リクエスト/日。無料プランが提供しないエンドポイントがあり、stock screener、経済カレンダー、13F 保有、一部の気配値エンドポイントを使うスキルは有料プランが必要です。詳細は [FMP プラン](docs/ja/getting-started.md#fmp-plans) と API 要件マトリクスを参照してください
 - 環境変数を設定: `export FMP_API_KEY=your_key_here`
 - または、プロンプト時にコマンドライン引数でキーを提供
 

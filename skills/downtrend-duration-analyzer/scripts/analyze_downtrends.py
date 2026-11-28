@@ -79,12 +79,46 @@ def get_market_cap_tier(market_cap: float | None) -> str:
         return "Small"
 
 
+_PLAN_MARKERS = (
+    "subscription",
+    "legacy endpoint",
+    "restricted endpoint",
+    "premium query",
+    "not available under your current",
+)
+
+
+def _is_plan_restriction(error: str | None) -> bool:
+    """HTTP 402, or a 403 whose body carries an entitlement marker (not a bad key or WAF)."""
+    text = (error or "").lower()
+    if text.startswith("http 402"):
+        return True
+    return text.startswith("http 403") and any(m in text for m in _PLAN_MARKERS)
+
+
 def fetch_stock_list(
     api_key: str, sector: str | None = None, *, client: FMPClient | None = None
 ) -> list[dict]:
     """Fetch the unchanged stock universe through the generated stable transport."""
     with client_scope(api_key, client) as transport:
         rows = transport.fetch_downtrend_screener(sector)
+        transport_error = getattr(transport, "_last_error", None) if rows is None else None
+    if rows is None and str(transport_error or "").startswith("HTTP 403"):
+        if not _is_plan_restriction(transport_error):
+            print(
+                "Error fetching stock list: FMP refused the company screener request "
+                "(HTTP 403). Check the API key and that the plan includes the screener.",
+                file=sys.stderr,
+            )
+            return []
+    if rows is None and _is_plan_restriction(transport_error):
+        print(
+            "Error fetching stock list: FMP plan does not include the company screener "
+            "endpoint (HTTP 402/403). Switch to an FMP plan that includes it. "
+            "See docs/en/getting-started.md#fmp-plans.",
+            file=sys.stderr,
+        )
+        return []
     if rows is None or any(
         not isinstance(row.get("symbol"), str) or not row["symbol"].strip() for row in rows
     ):

@@ -50,8 +50,8 @@ FMP transport (rate limiting, single 429 retry, apikey header auth so the key ne
 ```
 
 **API Tier Requirements:**
-- **Free Tier:** 250 requests/day (sufficient for analyzing 20-30 stocks quarterly)
-- **Paid Tiers:** Higher limits for extensive screening
+- **13F data requires a paid plan:** the free plan does not serve 13F institutional-ownership data, so lookups return no data (see `docs/en/getting-started.md#fmp-plans`)
+- **Paid Tiers:** Needed for any 13F analysis; check the plan note for limits
 
 **13F Filing Schedule:**
 - Filed quarterly within 45 days after quarter end

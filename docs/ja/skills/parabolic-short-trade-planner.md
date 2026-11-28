@@ -58,7 +58,7 @@ Qullamaggie 流の Parabolic Short ウォッチリストと、米国株向けの
 
 ## 3. 前提条件
 
-- **FMP API キー** が必須（環境変数 `FMP_API_KEY`）
+- **FMP API キー** が必須（環境変数 `FMP_API_KEY`）。無料の FMP プランでは一部の銘柄の気配値や履歴のリクエストが拒否されます（HTTP 402/403）。その場合はプラン制限のエラーで停止し、有料プランが必要になることがあります（[FMP プラン]({{ '/ja/getting-started/' | relative_url }}#fmp-plans) を参照）
 - FMP が Phase 1 用、Alpaca はオプション（`requests` 直叩き、SDK 不要）。Alpaca が無い場合、全候補は `plan_status: watch_only` に固定される
 - **Alpaca API キー**（`ALPACA_API_KEY` + `ALPACA_SECRET_KEY`）は Phase 3 のライブデータで必須。paper account でも `data.alpaca.markets` は同一エンドポイント
 - Python 3.9+ 推奨
