@@ -89,6 +89,14 @@ Phase 1（必須データ収集）→ Phase 2（定量スコアリング）→ P
 の順で完全な評価を行い、最終スコアから判断します。Criticalは13-15点が必要です。
 必須データが不足する場合は評価未完了とし、不足データの確認を求めます。
 
+**プログラムから実行する場合：**
+
+```bash
+python3 skills/us-market-bubble-detector/scripts/bubble_scorer.py \
+  --scores '{"mass_penetration":0,"media_saturation":1,"new_accounts":0,"new_issuance":1,"leverage":1,"price_acceleration":1,"valuation_disconnect":0,"breadth_expansion":1}' \
+  --output text
+```
+
 ---
 
 ## 4. 仕組み
