@@ -193,9 +193,10 @@ beta = slope  # Hedge ratio
 ```
 
 **Interpretation:**
-- Beta = 1.0: Equal dollar hedge ($1 long A, $1 short B)
-- Beta = 1.5: $1 long A, $1.50 short B
-- Beta = 0.8: $1 long A, $0.80 short B
+- `beta` is a **share hedge ratio** (shares of B per 1 share of A), matching `Spread = Price_A - beta × Price_B`
+- Beta = 1.0: 1 share of B per 1 share of A
+- Beta = 1.5: 1.5 shares of B per 1 share of A (dollar notional ratio = `1.5 × Price_B / Price_A`)
+- Beta = 0.8: 0.8 shares of B per 1 share of A (dollar notional ratio = `0.8 × Price_B / Price_A`)
 
 **Alternative Methods:**
 - **Total Least Squares (TLS)**: Accounts for error in both variables
@@ -434,9 +435,9 @@ Conditions:
 4. Half-life < 60 days
 5. No structural breaks in recent 6 months
 
-Action:
-- Buy Stock A: $5,000
-- Sell Stock B: $5,000 × β
+Action (for $10,000 gross allocation, n_A = $10,000 / (Price_A + β × Price_B)):
+- Buy Stock A: n_A shares (n_A × Price_A)
+- Sell Stock B: β × n_A shares (β × n_A × Price_B)
 ```
 
 **SHORT Spread (Short A, Long B):**
@@ -445,9 +446,9 @@ Conditions:
 1. Z-score > +2.0 (spread 2+ std devs above mean)
 2. [Same conditions 2-5 as above]
 
-Action:
-- Sell Stock A: $5,000
-- Buy Stock B: $5,000 × β
+Action (for $10,000 gross allocation, n_A = $10,000 / (Price_A + β × Price_B)):
+- Sell Stock A: n_A shares (n_A × Price_A)
+- Buy Stock B: β × n_A shares (β × n_A × Price_B)
 ```
 
 **Aggressive Strategy (Z ≥ ±1.5):**
@@ -516,15 +517,17 @@ Maximum Holding Period: 90 days (or 3× half-life)
 
 ### Position Sizing
 
-**Equal Dollar Allocation:**
+**Share-Hedged Gross Allocation:**
 ```
-For $10,000 total allocation to one pair:
-- Long Leg: $5,000
-- Short Leg: $5,000 × β
+For $10,000 gross allocation to one pair (Spread = Price_A - β × Price_B):
+- Shares of A: n_A = $10,000 / (Price_A + β × Price_B)
+- Shares of B: n_B = β × n_A
+- Dollar notional A: n_A × Price_A
+- Dollar notional B: n_B × Price_B
 
-If β = 1.2:
-- Long Stock A: $5,000
-- Short Stock B: $6,000
+Example (Price_A = $120, Price_B = $100, β = 1.2):
+- Long Stock A: $5,000 (41.67 shares)
+- Short Stock B: $5,000 (50.00 shares = 1.2 × 41.67)
 ```
 
 **Volatility-Adjusted Sizing:**
