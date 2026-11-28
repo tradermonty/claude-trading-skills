@@ -85,6 +85,15 @@ def fetch_stock_list(
     """Fetch the unchanged stock universe through the generated stable transport."""
     with client_scope(api_key, client) as transport:
         rows = transport.fetch_downtrend_screener(sector)
+        transport_error = getattr(transport, "_last_error", None) if rows is None else None
+    if rows is None and str(transport_error or "").startswith(("HTTP 402", "HTTP 403")):
+        print(
+            "Error fetching stock list: FMP plan does not include the company screener "
+            "endpoint (HTTP 402/403). Switch to an FMP plan that includes it. "
+            "See docs/en/getting-started.md#fmp-plans.",
+            file=sys.stderr,
+        )
+        return []
     if rows is None or any(
         not isinstance(row.get("symbol"), str) or not row["symbol"].strip() for row in rows
     ):

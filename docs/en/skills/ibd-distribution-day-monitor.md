@@ -56,7 +56,7 @@ IBD Distribution Day Monitor automates the single most actionable signal in Will
 
 ## 2. Prerequisites
 
-- **API Key:** [Financial Modeling Prep (FMP)](https://site.financialmodelingprep.com/developer/docs) — free tier (250 calls/day) is sufficient for daily QQQ + SPY runs.
+- **API Key:** [Financial Modeling Prep (FMP)](https://site.financialmodelingprep.com/developer/docs) — the call volume of a daily QQQ + SPY run is small, but on the free plan QQQ history can be refused (HTTP 402/403) while SPY works; the run then reports the symbol as plan-gated and a paid plan may be needed (see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans)).
 - **Python 3.9+:** Standard library plus `requests` (already installed) and `pyyaml` (already in `pyproject.toml` dependencies).
 - **No pandas dependency:** All OHLCV is processed as `list[dict]` for portability and speed.
 

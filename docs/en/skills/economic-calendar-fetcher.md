@@ -83,7 +83,7 @@ Use this skill when the user requests:
 
 ## 3. Prerequisites
 
-- **FMP API Key** (required): Sign up at https://financialmodelingprep.com for a free key (250 requests/day). Set via `FMP_API_KEY` environment variable or pass `--api-key` to the script.
+- **FMP API Key** (required): Sign up at https://financialmodelingprep.com. The economic calendar endpoint needs a paid plan; a free key gets HTTP 402 (see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans)). Set via `FMP_API_KEY` environment variable or pass `--api-key` to the script.
 - **Python 3.10+**: Required to run `skills/economic-calendar-fetcher/scripts/get_economic_calendar.py`.
 - **No third-party packages**: The script uses only the Python standard library.
 
@@ -116,7 +116,7 @@ Follow these steps to fetch and analyze the economic calendar:
 2. If not available, ask user to provide API key via chat
 3. If user doesn't have API key, provide instructions:
    - Visit https://financialmodelingprep.com
-   - Sign up for free account (250 requests/day limit)
+   - Sign up and choose a plan that includes the economic calendar (the free plan does not)
    - Navigate to API dashboard to obtain key
 
 **Example user interaction:**

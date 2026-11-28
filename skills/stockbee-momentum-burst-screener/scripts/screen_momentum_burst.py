@@ -211,6 +211,7 @@ class FMPClient:
             "limit": 10000,
         }
         data = self._call(self._client.fetch_screener_rows, params)
+        self.last_fetch_error = self._client._last_error if data is None else None
         if not isinstance(data, list):
             return []
 
@@ -1108,6 +1109,15 @@ def collect_price_data(
         symbols = build_symbol_list(args)
 
     if not symbols:
+        if args.fmp_universe and (client.last_fetch_error or "").startswith(
+            ("HTTP 402", "HTTP 403")
+        ):
+            raise ValueError(
+                "FMP plan does not include the company screener endpoint required for "
+                "--fmp-universe (HTTP 402/403). Use --symbols, --universe-file or "
+                "--prices-json, or switch to an FMP plan that includes the screener. "
+                "See docs/en/getting-started.md#fmp-plans."
+            )
         raise ValueError(
             "No symbols to process. Use --fmp-universe, --symbols, --universe-file, or --prices-json."
         )

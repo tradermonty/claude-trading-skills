@@ -418,7 +418,7 @@ For each skill's FMP, FINVIZ Elite and Alpaca requirements, see the [API Require
 ### API Setup
 
 **Financial Modeling Prep (FMP) API:**
-- Free tier: 250 requests/day (sufficient for most use cases)
+- Free tier: 250 requests/day. The free plan does not serve every endpoint: several skills need the stock screener, economic calendar, 13F ownership or some quote endpoints and require a paid plan (see [FMP plans](docs/en/getting-started.md#fmp-plans) and the API Requirements Matrix)
 - Sign up: https://financialmodelingprep.com/developer/docs
 - Set environment variable: `export FMP_API_KEY=your_key_here`
 - Or provide key via command-line argument when prompted

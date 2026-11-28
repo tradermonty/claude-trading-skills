@@ -516,7 +516,7 @@ def run_live(
     if not symbols:
         raise SystemExit(
             "ERROR: universe fetch returned no symbols (provider failure or empty "
-            "universe); refusing to write an empty screen"
+            "universe); refusing to write an empty screen" + _plan_restriction_hint(client)
         )
     logger.info("Universe size: %d", len(symbols))
 
@@ -600,7 +600,7 @@ def run_live(
     if len(price_fetch_failures) == attempted:
         raise SystemExit(
             f"ERROR: price history fetch failed for all {attempted} attempted "
-            "symbols; refusing to write an empty screen"
+            "symbols; refusing to write an empty screen" + _plan_restriction_hint(client)
         )
     if price_fetch_failures:
         logger.warning(
@@ -618,6 +618,17 @@ def run_live(
             }
         )
     return out
+
+
+def _plan_restriction_hint(client) -> str:
+    """Name an FMP plan restriction (HTTP 402/403) when it was the last failure."""
+    last_error = str(getattr(client, "_last_error", None) or "")
+    if last_error.startswith(("HTTP 402", "HTTP 403")):
+        return (
+            ". The last FMP request was refused with HTTP 402/403: this is a plan "
+            "restriction, not an empty market result. See docs/en/getting-started.md#fmp-plans"
+        )
+    return ""
 
 
 def _resolve_universe(args: argparse.Namespace, client) -> list[str]:

@@ -48,7 +48,7 @@ Screen US stocks for Stockbee-style short-term Momentum Burst setups using 4% br
 
 ## 3. Prerequisites
 
-- FMP API key for live universe and historical OHLCV screening:
+- FMP API key for live universe and historical OHLCV screening. `--fmp-universe` calls the company screener, which the free FMP plan does not include (HTTP 402/403); use `--symbols`, `--universe-file` or `--prices-json` on the free plan, or a plan that includes the screener (see `docs/en/getting-started.md#fmp-plans`):
   ```bash
   export FMP_API_KEY=your_api_key_here
   ```

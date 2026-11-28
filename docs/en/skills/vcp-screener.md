@@ -47,11 +47,11 @@ The VCP Screener automates detection of Mark Minervini's Volatility Contraction 
 
 ## 2. Prerequisites
 
-> FMP API key is required. The free tier (250 calls/day) is sufficient for the default screening of top 100 candidates.
+> FMP API key is required. The 250 calls/day free-plan budget covers the default screening of top 100 candidates, but the free plan can refuse quote requests (HTTP 402/403). The run then reports a plan restriction instead of VCP candidates, and a paid plan may be needed (see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans)).
 {: .api_required }
 
 **API Requirements:**
-- **FMP API key** -- Free tier: 250 calls/day (sufficient for default screening). Paid tier recommended for `--full-sp500`.
+- **FMP API key** -- Free plan: 250 calls/day, but quote requests can be refused (HTTP 402/403) and a paid plan may be needed. Paid plan recommended for `--full-sp500`.
 - Sign up: [https://site.financialmodelingprep.com/developer/docs](https://site.financialmodelingprep.com/developer/docs)
 
 **Python Dependencies:**
@@ -336,7 +336,7 @@ The 3-phase pipeline uses approximately 201 API calls for 100 candidates:
 - Phase 1: ~101 calls (quotes)
 - Phase 2: ~100 calls (historical prices)
 
-The free tier (250 calls/day) accommodates this with headroom. If you hit limits from running multiple skills, wait until UTC midnight for reset or use `--max-candidates 50` to reduce calls.
+The 250 calls/day free-plan budget accommodates this with headroom, provided the plan serves the endpoints. If you hit limits from running multiple skills, wait until UTC midnight for reset or use `--max-candidates 50` to reduce calls.
 
 ### "Stale" stocks with ATR below threshold
 

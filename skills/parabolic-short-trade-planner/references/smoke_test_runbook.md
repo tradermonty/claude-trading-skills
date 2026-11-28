@@ -25,7 +25,7 @@ execution.
 Set the following environment variables before running anything:
 
 ```bash
-export FMP_API_KEY=...           # Free tier (250 calls/day) is enough
+export FMP_API_KEY=...           # 250 calls/day is enough; the free plan may refuse some quotes (HTTP 402/403)
 export ALPACA_API_KEY=...
 export ALPACA_SECRET_KEY=...
 export ALPACA_PAPER=true         # Paper trading account; recommended

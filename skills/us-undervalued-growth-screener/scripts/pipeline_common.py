@@ -473,6 +473,22 @@ def load_config(path: Path | None) -> dict[str, Any]:
     return config
 
 
+def _empty_universe_message(client: Any) -> str:
+    """Error text for an empty listing universe; names a plan restriction when FMP refused it."""
+    for failure in getattr(client, "failures", None) or []:
+        if (
+            isinstance(failure, Mapping)
+            and "company-screener" in str(failure.get("endpoint", ""))
+            and failure.get("status_code") in (402, 403)
+        ):
+            return (
+                "FMP plan does not include the company screener endpoint (HTTP 402/403); "
+                "this is a plan restriction, not an empty market. Switch to an FMP plan "
+                "that includes the screener. See docs/en/getting-started.md#fmp-plans."
+            )
+    return "FMP company screener returned no normalized listing rows"
+
+
 def is_common_stock(row: Mapping[str, Any]) -> bool:
     if bool(row.get("isEtf")) or bool(row.get("isFund")):
         return False

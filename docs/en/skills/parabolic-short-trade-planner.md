@@ -78,7 +78,7 @@ Do NOT invoke for:
 
 ## 3. Prerequisites
 
-- **FMP API key** required (`FMP_API_KEY` environment variable)
+- **FMP API key** required (`FMP_API_KEY` environment variable). Some symbol quote and history requests are refused on the free FMP plan (HTTP 402/403); the run then stops with a plan-restriction error and a paid plan may be needed (see [FMP plans]({{ '/en/getting-started/' | relative_url }}#fmp-plans))
 - FMP for screener; Alpaca optional (`requests` direct, no SDK). Without Alpaca, every candidate flips to `plan_status: watch_only`
 - Python 3.9+ recommended
 

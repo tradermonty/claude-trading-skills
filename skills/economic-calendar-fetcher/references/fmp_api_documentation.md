@@ -25,7 +25,7 @@ API access requires a valid FMP API key, which must be included as a query param
 1. Visit https://financialmodelingprep.com
 2. Sign up for an account (free and paid tiers available)
 3. Navigate to the API dashboard to view your API key
-4. Free tier allows limited requests per day (~250-300 requests)
+4. The economic calendar endpoint is not on the free plan (HTTP 402); see `docs/en/getting-started.md#fmp-plans`
 5. Paid tiers offer higher rate limits and additional features
 
 ## Request Parameters
@@ -333,7 +333,7 @@ FMP Economic Calendar covers:
 |---------|---------|---------------|---------------|
 | API Access | Yes | No (scraping only) | No (scraping only) |
 | Historical Data | Yes | Limited | Yes (web only) |
-| Free Tier | Yes (250/day) | N/A | N/A |
+| Free Tier | No (HTTP 402 on a free key) | N/A | N/A |
 | Data Format | JSON | HTML | HTML |
 | Reliability | High | Medium (changes) | Medium (changes) |
 

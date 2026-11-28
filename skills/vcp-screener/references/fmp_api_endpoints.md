@@ -33,7 +33,7 @@
 
 ## Rate Limits
 
-- **Free tier:** 250 API calls/day - Default screening fits within this limit
+- **Free tier:** 250 API calls/day - Default screening fits within this budget, but the free plan can refuse quote requests (HTTP 402/403); see `docs/en/getting-started.md#fmp-plans`
 - **Paid plans:** limits and prices change; see `site.financialmodelingprep.com/pricing-plans` in a browser
 - **Rate limiting:** 0.3s delay between requests, automatic retry on 429
 - **Caching:** In-memory session cache prevents duplicate requests

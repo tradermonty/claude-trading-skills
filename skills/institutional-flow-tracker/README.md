@@ -21,7 +21,7 @@ Institutional Flow Tracker analyzes SEC 13F filings to discover stocks where sop
 ✅ **Signal Quality Framework** - Tier-based weighting system (superinvestors > active funds > index funds)
 ✅ **Multi-Quarter Trends** - Identify sustained accumulation/distribution (3+ quarters)
 ✅ **Concentration Analysis** - Assess ownership concentration risk
-✅ **FMP API Integration** - Free tier (250 calls/day) sufficient for quarterly reviews
+✅ **FMP API Integration** - 13F data needs a paid FMP plan (the free plan returns no ownership data; see `docs/en/getting-started.md#fmp-plans`)
 
 ## Prerequisites
 
@@ -40,11 +40,11 @@ python3 scripts/track_institutional_flow.py --api-key YOUR_KEY
 
 **Get API Key:**
 1. Visit: https://financialmodelingprep.com/developer/docs
-2. Sign up for free account (250 requests/day)
+2. Sign up and choose a plan that includes 13F institutional-ownership data (the free plan does not)
 3. Copy your API key
 
 **API Usage:**
-- Free tier: 250 requests/day (sufficient for analyzing 30-50 stocks quarterly)
+- Free plan: 250 requests/day, but it returns no 13F data, so a paid plan is required
 - Each stock analysis uses 1-2 API calls
 - Quarterly review workflow: ~50-100 API calls total
 

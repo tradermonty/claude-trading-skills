@@ -11,7 +11,14 @@ from typing import Any
 from build_provider_prefilter_pool import ALLOWED_LANES, build_pool
 from coverage_semantics import build_coverage_block, classify_ranking_scope
 from fmp_client import FMPClient
-from pipeline_common import PipelineResult, _symbol, _text, _write_json, _write_jsonl
+from pipeline_common import (
+    PipelineResult,
+    _empty_universe_message,
+    _symbol,
+    _text,
+    _write_json,
+    _write_jsonl,
+)
 from pipeline_enrichment import (
     _is_foreign_private_issuer,
     apply_bulk_liquidity,
@@ -70,7 +77,7 @@ def execute_pipeline(
         maximum_depth=int(config["maximum_market_cap_band_depth"]),
     )
     if not universe_rows:
-        raise ValueError("FMP company screener returned no normalized listing rows")
+        raise ValueError(_empty_universe_message(client))
     profile_overrides = {
         str(key).upper(): str(value)
         for key, value in (config.get("sector_profile_overrides") or {}).items()
