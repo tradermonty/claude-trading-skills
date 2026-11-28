@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from _price_bars import read_price
 
 REQUIRED_OHLCV_COLUMNS = {
     "symbol",
@@ -203,13 +204,18 @@ def hint_match_boost(
 
 def score_breakout_candidate(
     record: dict[str, Any], regime_label: str, hint_boost: float = 0.0
-) -> float:
-    """Score pivot breakout candidate."""
+) -> float | None:
+    """Score pivot breakout candidate.
+
+    Returns None when the record has no valid close (never scored as 0).
+    """
     rs_rank = float(record.get("rs_rank_pct", 0.0) or 0.0)
     rel_volume = float(record.get("rel_volume", 0.0) or 0.0)
     close_pos = float(record.get("close_pos", 0.0) or 0.0)
     atr_pct = float(record.get("atr_pct", 0.0) or 0.0)
-    close = float(record.get("close", 0.0) or 0.0)
+    close = read_price(record, "close")
+    if close is None:
+        return None
     high20_prev = float(record.get("high20_prev", 0.0) or 0.0)
 
     breakout_strength = 0.0
@@ -233,12 +239,17 @@ def score_breakout_candidate(
 
 def score_gap_candidate(
     record: dict[str, Any], regime_label: str, hint_boost: float = 0.0
-) -> float:
-    """Score gap-up continuation candidate."""
+) -> float | None:
+    """Score gap-up continuation candidate.
+
+    Returns None when the record has no valid close (never scored as 0).
+    """
     gap = float(record.get("gap", 0.0) or 0.0)
     rel_volume = float(record.get("rel_volume", 0.0) or 0.0)
     close_pos = float(record.get("close_pos", 0.0) or 0.0)
-    close = float(record.get("close", 0.0) or 0.0)
+    close = read_price(record, "close")
+    if close is None:
+        return None
     ma50 = float(record.get("ma50", 0.0) or 0.0)
     ma200 = float(record.get("ma200", 0.0) or 0.0)
     atr_pct = float(record.get("atr_pct", 0.0) or 0.0)
@@ -266,12 +277,17 @@ def score_gap_candidate(
 
 def score_reversal_candidate(
     record: dict[str, Any], regime_label: str, hint_boost: float = 0.0
-) -> float:
-    """Score panic-reversal style candidate."""
+) -> float | None:
+    """Score panic-reversal style candidate.
+
+    Returns None when the record has no valid close (never scored as 0).
+    """
     ret_1d = float(record.get("ret_1d", 0.0) or 0.0)
     rel_volume = float(record.get("rel_volume", 0.0) or 0.0)
     atr_pct = float(record.get("atr_pct", 0.0) or 0.0)
-    close = float(record.get("close", 0.0) or 0.0)
+    close = read_price(record, "close")
+    if close is None:
+        return None
     ma200 = float(record.get("ma200", 0.0) or 0.0)
 
     shock_component = clamp(abs(min(ret_1d, 0.0)) / 0.18, 0.0, 1.0) * 45.0
@@ -328,10 +344,13 @@ def build_ticket_payload(
     close_pos = float(candidate.get("close_pos", 0.0) or 0.0)
     rs_rank_pct = float(candidate.get("rs_rank_pct", 0.0) or 0.0)
 
+    # Market-level research tickets carry no close; record it as None, never 0.
+    close = read_price(candidate, "close")
+
     observation = {
         "symbol": symbol,
         "priority_score": priority_score,
-        "close": round(float(candidate.get("close", 0.0) or 0.0), 4),
+        "close": round(float(close), 4) if close is not None else None,
         "rel_volume": round(rel_volume, 3),
         "gap_pct": round(gap * 100.0, 3),
         "close_pos": round(close_pos, 3),
@@ -966,6 +985,9 @@ def scan_candidates(
                 score = score_gap_candidate(row_dict, regime_label=regime_label, hint_boost=boost)
                 hypothesis_type = "earnings_drift"
 
+            if score is None:
+                continue
+
             record = {
                 "symbol": symbol,
                 "entry_family": family,
@@ -1018,6 +1040,8 @@ def scan_reversal_candidates(
         score = score_reversal_candidate(
             row_dict, regime_label=regime_label, hint_boost=boost * 0.6
         )
+        if score is None:
+            continue
         candidates.append(
             {
                 "symbol": symbol,

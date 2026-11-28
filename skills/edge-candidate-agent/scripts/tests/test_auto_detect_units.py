@@ -196,8 +196,10 @@ def test_breakout_score_regime_and_atr_penalty() -> None:
     assert adc.score_breakout_candidate(record, "Unknown") == 86.0
     # ATR above 15% takes the full 15 point penalty.
     assert adc.score_breakout_candidate({**record, "atr_pct": 0.5}, "Unknown") == 71.0
-    # Missing/None values are treated as zero without crashing.
-    assert adc.score_breakout_candidate({"rs_rank_pct": None}, "Unknown") == 0.0
+    # A record without a valid close is not scored (never treated as 0).
+    assert adc.score_breakout_candidate({"rs_rank_pct": None}, "Unknown") is None
+    # Other missing/None values still default to zero without crashing.
+    assert adc.score_breakout_candidate({"close": 100.0, "rs_rank_pct": None}, "Unknown") == 0.0
 
 
 def test_gap_score_trend_and_regime() -> None:
@@ -357,3 +359,48 @@ def test_render_daily_report_empty_sections() -> None:
     assert "No research-only tickets generated." in report
     assert "Optional modules skipped" not in report
     assert "- pct_above_ma50: None" in report
+
+
+# --- missing / non-finite close is never treated as 0 (issue #655) -------------
+
+_BAD_CLOSES = [pytest.param({}, id="missing"), pytest.param({"close": float("nan")}, id="nan")]
+_SCORERS = ["score_breakout_candidate", "score_gap_candidate", "score_reversal_candidate"]
+
+
+def _scoring_record(**overrides):
+    record = {
+        "rs_rank_pct": 0.9,
+        "rel_volume": 2.5,
+        "close_pos": 0.8,
+        "atr_pct": 0.05,
+        "high20_prev": 100.0,
+        "gap": 0.06,
+        "ma50": 90.0,
+        "ma200": 80.0,
+        "ret_1d": -0.1,
+        "close": 105.0,
+    }
+    record.update(overrides)
+    return record
+
+
+@pytest.mark.parametrize("scorer", _SCORERS)
+@pytest.mark.parametrize("bad", _BAD_CLOSES)
+def test_scorers_return_none_without_valid_close(scorer, bad) -> None:
+    record = _scoring_record()
+    record.pop("close")
+    record.update(bad)
+    assert getattr(adc, scorer)(record, regime_label="Neutral") is None
+
+
+@pytest.mark.parametrize("scorer", _SCORERS)
+def test_scorers_still_score_valid_close(scorer) -> None:
+    assert isinstance(getattr(adc, scorer)(_scoring_record(), regime_label="Neutral"), float)
+
+
+@pytest.mark.parametrize("bad", _BAD_CLOSES)
+def test_build_ticket_payload_never_records_zero_close(bad) -> None:
+    candidate = {"symbol": "ABC", "priority_score": 50.0, "entry_family": "pivot_breakout"}
+    candidate.update(bad)
+    payload = adc.build_ticket_payload(candidate, AS_OF, "Neutral", 1, {})
+    assert payload["observation"]["close"] is None
