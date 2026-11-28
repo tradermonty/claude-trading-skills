@@ -56,18 +56,21 @@ Prevents holding broken pairs indefinitely
 
 **Market Neutral Sizing:**
 
-For a pair (Stock A, Stock B) with beta = β:
+**Share-Hedged Sizing (Price-Level OLS):**
 
-**Equal Dollar Exposure:**
+For a pair (Stock A, Stock B) with price-level OLS slope β (`Spread = Price_A - β × Price_B`), each 1 share of Stock A is hedged by β shares of Stock B:
+
 ```
-If portfolio size = $10,000 allocated to this pair:
-- Long $5,000 of Stock A
-- Short $5,000 × β of Stock B
+If gross allocation = $10,000 for this pair:
+- Shares of A: n_A = $10,000 / (Price_A + β × Price_B)
+- Shares of B: n_B = β × n_A
+- Dollar notional A: n_A × Price_A
+- Dollar notional B: n_B × Price_B  (= notional_A × β × Price_B / Price_A)
 
-Example (β = 1.2):
-- Long $5,000 Stock A
-- Short $6,000 Stock B
-→ Market neutral, beta = 0
+Example (Price_A = $120, Price_B = $100, β = 1.2):
+- n_A = $10,000 / ($120 + 1.2 × $100) = 41.67 shares → Long $5,000 Stock A
+- n_B = 1.2 × 41.67 = 50.00 shares → Short $5,000 Stock B
+→ Spread-neutral (ΔSpread = 0 ⇒ P&L = 0), gross notional = $10,000
 ```
 
 **Position Sizing Considerations:**

@@ -178,10 +178,10 @@ python3 skills/pair-trade-screener/scripts/find_pairs.py \
 Beta = Covariance(A, B) / Variance(B)
 ```
 
-ベータはヘッジ比率を示す:
-- Beta = 1.0: 同額のドル金額
-- Beta = 1.5: Aの$1.00に対してBは$1.50
-- Beta = 0.8: Aの$1.00に対してBは$0.80
+ベータは価格水準OLS（`Price_A = alpha + Beta × Price_B`）による株数ヘッジ比率を示す:
+- Beta = 1.0: 銘柄A 1株に対して銘柄B 1株
+- Beta = 1.5: 銘柄A 1株に対して銘柄B 1.5株（金額比 = `Beta × Price_B / Price_A`）
+- Beta = 0.8: 銘柄A 1株に対して銘柄B 0.8株（金額比 = `Beta × Price_B / Price_A`）
 
 ### ステップ4: 共和分検定
 
@@ -286,14 +286,16 @@ Z-Score = (Current_Spread - Mean_Spread) / Std_Dev_Spread
 ペア（銘柄A、銘柄B）でベータ = β の場合:
 
 ```
-ポートフォリオサイズ = $10,000をこのペアに配分する場合:
-- 銘柄Aを$5,000ロング
-- 銘柄Bを$5,000 × β ショート
+総配分 = $10,000をこのペアに配分する場合（Spread = Price_A - β × Price_B）:
+- 銘柄Aの株数: n_A = $10,000 / (Price_A + β × Price_B)
+- 銘柄Bの株数: n_B = β × n_A
+- 銘柄Aの想定元本: n_A × Price_A
+- 銘柄Bの想定元本: n_B × Price_B（= Aの想定元本 × β × Price_B / Price_A）
 
-例 (β = 1.2):
-- 銘柄Aを$5,000ロング
-- 銘柄Bを$6,000ショート
-→ マーケットニュートラル、ベータ = 0
+例 (Price_A = $120, Price_B = $100, β = 1.2):
+- 銘柄Aを$5,000ロング（41.67株）
+- 銘柄Bを$5,000ショート（50.00株 = 1.2 × 41.67株）
+→ スプレッド中立、総想定元本 = $10,000
 ```
 
 **ポジションサイジングの考慮事項:**

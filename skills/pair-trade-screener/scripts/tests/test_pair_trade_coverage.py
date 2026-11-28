@@ -1133,6 +1133,9 @@ def render_report(capsys, *, current_zscore, entry=2.0, exit_=0.5, half_life=20.
 
 def test_report_short_spread_signal_and_sizing(capsys):
     out, a, b = render_report(capsys, current_zscore=2.4)
+    shares_a = 10000.0 / (float(a.iloc[-1]) + 1.2 * float(b.iloc[-1]))
+    notional_a = shares_a * float(a.iloc[-1])
+    notional_b = shares_a * 1.2 * float(b.iloc[-1])
 
     assert "PAIR TRADE ANALYSIS: AAA / BBB" in out
     assert "Data Points: 150" in out
@@ -1144,22 +1147,115 @@ def test_report_short_spread_signal_and_sizing(capsys):
     assert "Speed: Fast" in out
     assert "Signal: 🔻 SHORT SPREAD" in out
     assert "Action: Short AAA, Long BBB" in out
-    assert "SHORT AAA: $5,000" in out
+    assert f"SHORT AAA: ${notional_a:,.0f}" in out
     assert f"@ ${a.iloc[-1]:.2f})" in out
-    assert f"LONG BBB: ${5000 * 1.2:,.0f}" in out
+    assert f"LONG BBB: ${notional_b:,.0f}" in out
     assert "Primary: Z-score crosses 0.5" in out
     assert "[ Z-SCORE CHART ]" in out
 
 
 def test_report_long_spread_signal_and_sizing(capsys):
-    out, _, _ = render_report(capsys, current_zscore=-2.4, p_value=0.03, half_life=45.0)
+    out, a, b = render_report(capsys, current_zscore=-2.4, p_value=0.03, half_life=45.0)
+    shares_a = 10000.0 / (float(a.iloc[-1]) + 1.2 * float(b.iloc[-1]))
+    notional_a = shares_a * float(a.iloc[-1])
+    notional_b = shares_a * 1.2 * float(b.iloc[-1])
 
     assert "Strength: ★★ Moderate" in out
     assert "Speed: Moderate" in out
     assert "Signal: 🔺 LONG SPREAD" in out
     assert "Action: Long AAA, Short BBB" in out
-    assert "LONG AAA: $5,000" in out
-    assert f"SHORT BBB: ${5000 * 1.2:,.0f}" in out
+    assert f"LONG AAA: ${notional_a:,.0f}" in out
+    assert f"SHORT BBB: ${notional_b:,.0f}" in out
+
+
+@pytest.mark.parametrize(
+    ("price_a", "price_b", "beta"),
+    [
+        (242.50, 48.00, 4.9782),  # P_A >> P_B (e.g., JPM / BAC)
+        (185.50, 411.25, 0.45),  # P_A < P_B (e.g., AAPL / MSFT)
+        (140.00, 100.00, 1.20),  # Non-zero intercept (P_A = 20 + 1.2 * P_B)
+    ],
+)
+def test_position_sizing_preserves_share_hedge_ratio_and_gross_allocation(price_a, price_b, beta):
+    sizing = analyze_spread.calculate_position_sizing(price_a, price_b, beta, 10000.0)
+
+    assert sizing is not None
+    assert sizing["shares_b"] / sizing["shares_a"] == pytest.approx(beta)
+    assert sizing["notional_a"] + sizing["notional_b"] == pytest.approx(10000.0)
+    # Zero-spread common move (dP_A = beta * dP_B) produces zero P&L
+    dp_b = price_b * 0.10
+    dp_a = beta * dp_b
+    pnl = sizing["shares_a"] * dp_a - sizing["shares_b"] * dp_b
+    assert pnl == pytest.approx(0.0, abs=1e-9)
+
+
+@pytest.mark.parametrize(
+    ("price_a", "price_b", "beta"),
+    [
+        (100.0, 50.0, 0.0),
+        (100.0, 50.0, -1.5),
+        (100.0, 50.0, float("nan")),
+        (0.0, 50.0, 1.2),
+        (100.0, -50.0, 1.2),
+    ],
+)
+def test_position_sizing_rejects_non_positive_beta_or_prices(price_a, price_b, beta):
+    assert analyze_spread.calculate_position_sizing(price_a, price_b, beta, 10000.0) is None
+
+
+def test_report_non_positive_beta_omits_negative_leg_sizing(capsys):
+    out, _, _ = render_report(capsys, current_zscore=2.5, beta=-1.5)
+
+    assert "[ POSITION SIZING ]" in out
+    assert "Unavailable" in out
+    assert "SHORT AAA:" not in out
+    assert "LONG BBB:" not in out
+
+
+def test_report_divergent_share_prices_stays_within_allocation(capsys):
+    idx = pd.date_range("2025-01-01", periods=150, freq="D")
+    rng = np.random.default_rng(42)
+    prices_b = pd.Series(48.0 + np.cumsum(rng.normal(0, 0.3, 150)), index=idx, name="BAC")
+    prices_b = prices_b - prices_b.iloc[-1] + 48.0
+    noise = np.zeros(150)
+    for i in range(1, 150):
+        noise[i] = 0.5 * noise[i - 1] + rng.normal(0, 0.2)
+    noise[-1] = 2.5
+    prices_a = pd.Series(5.0 * prices_b + noise, index=idx, name="JPM")
+
+    beta_res = analyze_spread.calculate_hedge_ratio(prices_a, prices_b)
+    beta = beta_res["beta"]
+    spread = beta_res["aligned_a"] - beta * beta_res["aligned_b"]
+    zscore = analyze_spread.calculate_zscore_series(spread, window=90)
+    coint = {
+        "adf_statistic": -5.0,
+        "p_value": 0.001,
+        "critical_values": {"1%": -3.5, "5%": -2.9, "10%": -2.6},
+        "is_cointegrated": True,
+    }
+    analyze_spread.print_analysis_report(
+        "JPM", "BAC", prices_a, prices_b, beta_res, spread, coint, 10.0, zscore, 3.0, 2.0, 0.0
+    )
+    out = capsys.readouterr().out
+
+    expected = analyze_spread.calculate_position_sizing(
+        prices_a.iloc[-1], prices_b.iloc[-1], beta, 10000.0
+    )
+    assert expected is not None
+    assert (
+        f"SHORT JPM: ${expected['notional_a']:,.0f} ({expected['shares_a']:.0f} shares @ $242.50)"
+        in out
+    )
+    assert (
+        f"LONG BAC: ${expected['notional_b']:,.0f} ({expected['shares_b']:.0f} shares @ $48.00)"
+        in out
+    )
+    assert "$24,891" not in out
+
+
+def test_position_sizing_rejects_non_positive_allocation():
+    assert analyze_spread.calculate_position_sizing(100.0, 50.0, 1.2, 0.0) is None
+    assert analyze_spread.calculate_position_sizing(100.0, 50.0, 1.2, -5000.0) is None
 
 
 def test_report_wait_signal_has_no_position_sizing(capsys):
