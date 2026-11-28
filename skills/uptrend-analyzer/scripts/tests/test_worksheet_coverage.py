@@ -41,6 +41,22 @@ def test_rows_without_a_usable_ratio_are_invalid_data():
     assert coverage["verdict"] == "partial"
 
 
+def test_sector_summary_alone_decides_coverage_when_present():
+    # Reproduced review scenario: every timeseries worksheet is valid but the
+    # summary CSV has only Technology. The calculators use the summary alone
+    # when it is non-empty, so coverage must not claim the other ten sectors
+    # were evaluated from the timeseries.
+    sector_latest = {worksheet: _latest() for worksheet in WORKSHEET_TO_DISPLAY}
+    summary = [_summary_row("Technology")]
+
+    coverage = build_worksheet_coverage(_latest(), sector_latest, summary)
+
+    assert coverage["universe_size"] == 12
+    assert coverage["evaluated"] == 2
+    assert coverage["not_evaluated_reasons"] == {"missing_data": 10}
+    assert coverage["verdict"] == "partial"
+
+
 def test_sector_summary_is_used_as_the_documented_fallback():
     sector_latest = {worksheet: _latest(ratio=None) for worksheet in WORKSHEET_TO_DISPLAY}
     summary = [_summary_row(name, ratio=0.25) for name in WORKSHEET_TO_DISPLAY.values()]

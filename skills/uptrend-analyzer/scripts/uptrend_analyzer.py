@@ -73,11 +73,15 @@ def build_worksheet_coverage(
     """Count the declared dashboard worksheets that reached a usable latest ratio.
 
     The declared universe is the primary timeseries' twelve worksheets: ``all``
-    plus the eleven sector worksheets in ``WORKSHEET_TO_DISPLAY``. A worksheet
-    is evaluated when its latest ratio is finite, using the sector summary CSV
-    as the fallback source the calculators already accept. A worksheet with no
-    row is ``missing_data``; a row that exists but has no usable ratio is
-    ``invalid_data`` (#711).
+    plus the eleven sector worksheets in ``WORKSHEET_TO_DISPLAY``. Sector
+    evaluation follows the calculators' actual source: when the sector summary
+    CSV is non-empty it is used alone (``sector_rotation_calculator`` and
+    ``sector_participation_calculator`` rebuild a summary from the timeseries
+    only when the whole summary is missing), so a sector worksheet is
+    evaluated only if its own summary row carries a usable ratio. With no
+    summary at all, each worksheet falls back to its latest timeseries ratio.
+    A worksheet with no row is ``missing_data``; a row that exists but has no
+    usable ratio is ``invalid_data`` (#711).
     """
     summary_ratios = {
         row.get("Sector"): row.get("Ratio") for row in sector_summary if row.get("Sector")
@@ -90,15 +94,19 @@ def build_worksheet_coverage(
         outcomes["all"] = "invalid_data" if latest_all else "missing_data"
 
     for worksheet, display_name in WORKSHEET_TO_DISPLAY.items():
-        latest = sector_latest.get(worksheet)
-        if (latest and _usable_ratio(latest.get("ratio"))) or _usable_ratio(
-            summary_ratios.get(display_name)
-        ):
-            outcomes[worksheet] = None
-        elif latest or display_name in summary_ratios:
-            outcomes[worksheet] = "invalid_data"
+        if sector_summary:
+            if display_name not in summary_ratios:
+                outcomes[worksheet] = "missing_data"
+            elif _usable_ratio(summary_ratios.get(display_name)):
+                outcomes[worksheet] = None
+            else:
+                outcomes[worksheet] = "invalid_data"
         else:
-            outcomes[worksheet] = "missing_data"
+            latest = sector_latest.get(worksheet)
+            if latest and _usable_ratio(latest.get("ratio")):
+                outcomes[worksheet] = None
+            else:
+                outcomes[worksheet] = "invalid_data" if latest else "missing_data"
 
     return build_evaluation_coverage(outcomes)
 
