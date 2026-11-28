@@ -22,10 +22,6 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Parity allowlist must reference open issues
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/check_skill_doc_parity.py --check --check-issue-refs
       - name: Report guide drift without executing examples
         run: |
           python3 scripts/report_skill_doc_drift.py --github \
@@ -40,3 +36,7 @@ jobs:
           path: reports/skill-doc-drift.*
           if-no-files-found: error
           retention-days: 30
+      - name: Parity allowlist must reference open issues
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/check_skill_doc_parity.py --check --check-issue-refs

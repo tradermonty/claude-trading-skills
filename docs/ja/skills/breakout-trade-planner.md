@@ -43,9 +43,7 @@ Breakout Trade Planner は、`vcp-screener` が見つけた VCP 候補を「何�
 
 このスキルは注文実行エンジンではありません。出力は人間が確認するための売買計画です。
 
----
-
-## 2. 使う場面
+### 使う場面
 
 - VCP Screener の JSON 出力をもとに具体的な売買計画を作りたい
 - pivot 上抜けの entry、stop、target、R 倍率を整理したい
@@ -53,7 +51,7 @@ Breakout Trade Planner は、`vcp-screener` が見つけた VCP 候補を「何�
 - 既存ポジションを含めた portfolio heat を見たい
 - Alpaca に転記しやすい注文テンプレートを作りたい
 
-使わない場面:
+**使わない場面:**
 
 - VCP 候補そのものを探す段階。先に `vcp-screener` を使います。
 - 市場環境の可否判定。先に `market-regime-daily` や `exposure-coach` を確認します。
@@ -61,7 +59,7 @@ Breakout Trade Planner は、`vcp-screener` が見つけた VCP 候補を「何�
 
 ---
 
-## 3. 前提条件
+## 2. 前提条件
 
 - Python 3.9+
 - `vcp-screener` の JSON 出力
@@ -72,7 +70,7 @@ Breakout Trade Planner は、`vcp-screener` が見つけた VCP 候補を「何�
 
 ---
 
-## 4. クイックスタート
+## 3. クイックスタート
 
 ```bash
 python3 skills/breakout-trade-planner/scripts/plan_breakout_trades.py \
@@ -90,7 +88,7 @@ Claude に依頼する場合:
 
 ---
 
-## 5. 判定ロジック
+## 4. 判定ロジック
 
 Minervini 型のブレイクアウト計画として、次の条件を重視します。
 
@@ -107,6 +105,108 @@ Minervini 型のブレイクアウト計画として、次の条件を重視し�
 
 ---
 
+## 5. 使用例
+
+### 例 1: 基本的な売買計画の生成
+
+**プロンプト:**
+```
+Generate breakout trade plans from the latest VCP screener results.
+Account size: $100,000. Risk 0.5% per trade.
+```
+
+**実行される処理:**
+1. 直近の VCP スクリーナー JSON を読み込みます
+2. Minervini Gate で候補を絞り込みます
+3. 最悪約定価格を使ってポジションサイズを計算します
+4. 自動化向けの JSON と、確認用の Markdown を出力します
+
+---
+
+### 例 2: 既存ポートフォリオのエクスポージャーを考慮する
+
+エクスポージャーファイルを作成します。
+```json
+{
+  "sector_exposure": {"Technology": 22.0, "Industrials": 8.5},
+  "open_risk_pct": 3.2
+}
+```
+
+```bash
+python3 skills/breakout-trade-planner/scripts/plan_breakout_trades.py \
+  --input reports/vcp_screener_2026-04-12.json \
+  --account-size 100000 --risk-pct 0.5 \
+  --current-exposure-json exposure.json \
+  --output-dir reports/
+```
+
+**有用な理由:** 集中しすぎを防ぎます。Technology がすでに 22% なら、別のテック銘柄を加えると 30% のセクター上限で制約されます。
+
+---
+
+### 例 3: 保守的な設定
+
+```bash
+python3 skills/breakout-trade-planner/scripts/plan_breakout_trades.py \
+  --input reports/vcp_screener_2026-04-12.json \
+  --account-size 50000 \
+  --risk-pct 0.25 \
+  --max-portfolio-heat-pct 3.0 \
+  --max-chase-pct 1.0 \
+  --output-dir reports/
+```
+
+**効果:** ポジションが小さくなり（リスク 0.25%）、ヒート上限も厳しくなり（3%）、pivot を超えて追いかけてよい幅は 1% だけになります。変動の大きい相場や小さめの口座に向いています。
+
+---
+
+### 例 4: actionable 注文の読み方
+
+JSON 出力に含まれる典型的な actionable 注文です（pivot=$100、last_low=$95）。
+
+```json
+{
+  "symbol": "EXAMPLE",
+  "rating_band": "strong",
+  "plan_type": "pending_breakout",
+  "decision_code": "ACTIONABLE_PREBREAKOUT",
+  "trade_plan": {
+    "signal_entry": 100.10,
+    "worst_entry": 102.00,
+    "stop_loss_price": 94.05,
+    "risk_pct_worst": 7.79,
+    "target_price": 117.90,
+    "shares": 62,
+    "risk_dollars": 492.90
+  },
+  "order_templates": {
+    "pre_place": {
+      "type": "stop_limit",
+      "stop_price": 100.10,
+      "limit_price": 102.00,
+      "order_class": "bracket"
+    },
+    "post_confirm": {
+      "type": "limit",
+      "limit_price": 102.00,
+      "order_class": "bracket",
+      "entry_condition": { "bar_interval": "5min", "..." : "..." }
+    }
+  }
+}
+```
+
+**読み方**（pivot=$100、last_low=$95）:
+- **signal_entry**（$100.10）: pivot + 0.1% で buy-stop が発動します
+- **worst_entry**（$102.00）: pivot + 2% の最大約定価格です。サイズ計算はすべてこの価格を使います
+- **stop_loss_price**（$94.05）: 直近の contraction low $95 から 1% のバッファを引いた価格です
+- **risk_pct_worst**（7.79%）: (102.00 - 94.05) / 102.00 で、8% の Gate を通過します
+- **target_price**（$117.90）: worst_entry + 2R = 102.00 + 2 * (102.00 - 94.05) です
+- **2種類の注文テンプレート**: pre_place（置いたら放置）か post_confirm（5分足の確認を待つ）を選びます
+
+---
+
 ## 6. 出力の読み方
 
 Markdown レポートでは、次のグループを確認します。
@@ -120,7 +220,7 @@ Markdown レポートでは、次のグループを確認します。
 
 ---
 
-## 7. 注意点
+## 7. ヒントとベストプラクティス
 
 - pivot から大きく上に離れた候補を無理に追いかけないでください。
 - worst entry で計算したリスクが許容範囲を超える場合は見送ります。
